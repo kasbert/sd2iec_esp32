@@ -19,15 +19,22 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 
-   dirent.h: Various data structures for directory browsing
+   cbmdirent.h: Various data structures for directory browsing
 
 */
 
-#ifndef DIRENT_H
-#define DIRENT_H
+#ifndef CBMDIRENT_H
+#define CBMDIRENT_H
 
+#ifdef CONFIG_HAVE_EEPROMFS
 #include "eeprom-fs.h"
+#endif
+#ifdef CONFIG_HAVE_FATFS
 #include "ff.h"
+#endif
+#ifdef CONFIG_HAVE_VFS
+#include <dirent.h>
+#endif
 
 #define CBM_NAME_LENGTH 16
 
@@ -54,6 +61,7 @@
 #define FLAG_HIDDEN (1<<5)
 #define FLAG_RO     (1<<6)
 #define FLAG_SPLAT  (1<<7)
+#define FLAG_IMAGE  (1<<8)
 
 /* forward declaration to avoid an include loop */
 struct buffer_s;
@@ -85,7 +93,12 @@ typedef struct date {
  * @dxx: track/sector of the first directory sector for Dxx
  */
 typedef struct {
+#ifdef CONFIG_HAVE_VFS
+  char pathname[512]; // FIXME - should be more
+#endif
+#ifdef CONFIG_HAVE_FATFS
   uint32_t fat;
+#endif
   struct {
     uint8_t track;
     uint8_t sector;
@@ -128,6 +141,8 @@ typedef enum {
   OPSTYPE_FAT,
   OPSTYPE_FAT_X00,  /* X00 files can never be disk images */
                     /* and should match case-sensitive    */
+  OPSTYPE_VFS,
+  OPSTYPE_VFS_X00,
   OPSTYPE_M2I,
   OPSTYPE_DXX,
   OPSTYPE_EEFS
@@ -162,16 +177,23 @@ typedef enum {
  */
 typedef struct {
   uint8_t   name[CBM_NAME_LENGTH+1];
-  uint8_t   typeflags;
+  uint16_t  typeflags;
   uint16_t  blocksize;
   uint8_t   remainder;
   date_t    date;
   opstype_t opstype;
   union {
+#ifdef CONFIG_HAVE_FATFS
     struct {
       uint32_t cluster;
       uint8_t  realname[8+3+1+1];
     } fat;
+#endif
+#ifdef CONFIG_HAVE_VFS
+    struct {
+      char  realname[256]; // FIXME
+    } vfs;
+#endif
     struct {
       struct d64dh dh;
     } dxx;
@@ -214,10 +236,20 @@ typedef struct d64fh {
 typedef struct dh_s {
   uint8_t part;
   union {
+#ifdef CONFIG_HAVE_FATFS
     DIR          fat;
+#endif
     uint16_t     m2i;
     struct d64dh d64;
+#ifdef CONFIG_HAVE_VFS
+    struct {
+      DIR *dirp;
+      char pathname[512]; // FIXME
+    } vfs;
+#endif
+#ifdef CONFIG_HAVE_EEPROMFS
     eefs_dir_t   eefs;
+#endif
   } dir;
 } dh_t;
 
@@ -265,12 +297,22 @@ struct param_s {
  * This data structure holds per-partition data.
  */
 typedef struct partition_s {
+#ifdef CONFIG_HAVE_FATFS
   FATFS                  fatfs;
+#endif
   dir_t                  current_dir;
   const struct fileops_s *fop;
+#ifdef CONFIG_HAVE_FATFS
   FIL                    imagehandle;
+#endif
   uint8_t                imagetype;
   struct param_s         d64data;
+  const struct fileops_s *parent_fop; // fat/vfs for d64
+#ifdef CONFIG_HAVE_VFS
+  const char             *base_path;
+  int                    imagefd;
+#endif
+  uint8_t                flag;
 } partition_t;
 
 #endif

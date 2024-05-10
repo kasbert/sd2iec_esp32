@@ -38,7 +38,7 @@
 #include "timer.h"
 #include "fastloader.h"
 
-uint8_t detected_loader;
+fastloaderid_t detected_loader;
 
 /* Function pointer to the current byte transmit/receive functions */
 /* (to simplify loaders with multiple variations of these)         */
@@ -59,9 +59,12 @@ volatile uint8_t parallel_rxflag;
 /* Small helper for fastloaders that need to detect disk changes */
 uint8_t check_keys(void) {
   /* Check for disk changes etc. */
+#if defined(KEY_NEXT)+defined(KEY_PREV)+defined(KEY_HOME) > 0
   if (key_pressed(KEY_NEXT | KEY_PREV | KEY_HOME)) {
     change_disk();
   }
+#endif
+#if defined(KEY_SLEEP)
   if (key_pressed(KEY_SLEEP)) {
     reset_key(KEY_SLEEP);
     set_busy_led(0);
@@ -72,6 +75,7 @@ uint8_t check_keys(void) {
 
     return 1;
   }
+#endif
 
   return 0;
 }

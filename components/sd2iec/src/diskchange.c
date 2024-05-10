@@ -30,9 +30,11 @@
 #include "display.h"
 #include "doscmd.h"
 #include "errormsg.h"
+#ifdef CONFIG_HAVE_FATFS
 #include "fatops.h"
-#include "flags.h"
 #include "ff.h"
+#endif
+#include "flags.h"
 #include "led.h"
 #include "parser.h"
 #include "progmem.h"

@@ -33,6 +33,8 @@ extern date_t date_match_end;
 
 extern uint16_t datacrc;
 
+extern uint8_t file_extension_mode;
+
 void parse_doscommand(void);
 void do_chdir(uint8_t *parsestr);
 

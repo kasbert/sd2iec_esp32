@@ -61,8 +61,6 @@ static const PROGMEM char p00marker[] = "C64File";
 
 typedef enum { EXT_UNKNOWN, EXT_IS_X00, EXT_IS_TYPE } exttype_t;
 
-uint8_t file_extension_mode;
-
 /* ------------------------------------------------------------------------- */
 /*  Utility functions                                                        */
 /* ------------------------------------------------------------------------- */
@@ -175,46 +173,6 @@ static exttype_t check_extension(uint8_t *name, uint8_t **ext) {
 }
 
 /**
- * check_imageext - check for a known image file extension
- * @name: pointer to the file name
- *
- * This function checks if the given file name has an extension that
- * indicates a known image file type. Returns IMG_IS_M2I for M2I files,
- * IMG_IS_DISK for D64/D41/D71/D81 files or IMG_UNKNOWN for an unknown
- * file extension.
- */
-imgtype_t check_imageext(uint8_t *name) {
-  uint8_t f,s,t;
-  uint8_t *ext = ustrrchr(name, '.');
-
-  if (ext == NULL)
-    return IMG_UNKNOWN;
-
-  if (ustrlen(ext) != 4)
-    return IMG_UNKNOWN;
-
-  f = toupper(*++ext);
-  s = toupper(*++ext);
-  t = toupper(*++ext);
-
-#ifdef CONFIG_M2I
-  if (f == 'M' && s == '2' && t == 'I')
-    return IMG_IS_M2I;
-#endif
-
-  if (f == 'D') {
-    if ((s == '6' && t == '4') ||
-        (s == 'N' && t == 'P') ||
-        ((s == '4' || s == '7' || s == '8') &&
-         (t == '1'))) {
-      return IMG_IS_DISK;
-    }
-  }
-
-  return IMG_UNKNOWN;
-}
-
-/**
  * should_save_raw - check if the file should be saved header-free
  * @name: pointer to the file name
  *
@@ -247,30 +205,6 @@ static bool should_save_raw(uint8_t* name) {
     return true;
 
   return false;
-}
-
-/**
- * pet2asc - convert string from PETSCII to ASCII
- * @buf: pointer to the string to be converted
- *
- * This function converts the string in the given buffer from PETSCII to
- * ASCII in-place.
- */
-static void pet2asc(uint8_t *buf) {
-  uint8_t ch;
-  while (*buf) {
-    ch = *buf;
-    if (ch > (128+64) && ch < (128+91))
-      ch -= 128;
-    else if (ch > (96-32) && ch < (123-32))
-      ch += 32;
-    else if (ch > (192-128) && ch < (219-128))
-      ch += 128;
-    else if (ch == 255)
-      ch = '~';
-    *buf = ch;
-    buf++;
-  }
 }
 
 /**
@@ -1128,10 +1062,13 @@ uint8_t fat_chdir(path_t *path, cbmdirent_t *dent) {
                    dent->pvt.fat.realname, FA_OPEN_EXISTING|FA_READ|FA_WRITE);
 
       /* Try to open read-only if medium or file is read-only */
-      if (res == FR_DENIED || res == FR_WRITE_PROTECTED)
+      uint8_t flag = 0;
+      if (res == FR_DENIED || res == FR_WRITE_PROTECTED) {
         res = f_open(&partition[path->part].fatfs,
                      &partition[path->part].imagehandle,
                      dent->pvt.fat.realname, FA_OPEN_EXISTING|FA_READ);
+        flag = FLAG_RO;
+      }
 
       if (res != FR_OK) {
         parse_error(res,1);
@@ -1139,14 +1076,18 @@ uint8_t fat_chdir(path_t *path, cbmdirent_t *dent) {
       }
 
 #ifdef CONFIG_M2I
-      if (check_imageext(dent->pvt.fat.realname) == IMG_IS_M2I)
+      if (check_imageext(dent->pvt.fat.realname) == IMG_IS_M2I) {
         partition[path->part].fop = &m2iops;
-      else
+        partition[path->part].parent_fop = &fatops;
+        partition[path->part].flag = flag;
+      } else
 #endif
         {
           if (d64_mount(path, dent->pvt.fat.realname))
             return 1;
           partition[path->part].fop = &d64ops;
+          partition[path->part].parent_fop = &fatops;
+          partition[path->part].flag = flag;
         }
 
       return 0;
@@ -1526,7 +1467,7 @@ void fatops_init(uint8_t preserve_path) {
 }
 
 /**
- * image_unmount - generic unmounting function for images
+ * fatops_image_unmount - generic unmounting function for images
  * @part: partition number
  *
  * This function will clear all buffers, close the image file and
@@ -1534,7 +1475,7 @@ void fatops_init(uint8_t preserve_path) {
  * any image file types that don't require special cleanups.
  * Returns 0 if successful, 1 otherwise.
  */
-uint8_t image_unmount(uint8_t part) {
+uint8_t fat_image_unmount(uint8_t part) {
   FRESULT res;
 
   free_multiple_buffers(FMB_USER_CLEAN);
@@ -1576,7 +1517,7 @@ uint8_t image_unmount(uint8_t part) {
 uint8_t image_chdir(path_t *path, cbmdirent_t *dent) {
   if (dent->name[0] == '_' && dent->name[1] == 0) {
     /* Unmount request */
-    return image_unmount(path->part);
+    return fatops_image_unmount(path->part);
   }
   return 1;
 }
@@ -1607,7 +1548,7 @@ void image_mkdir(path_t *path, uint8_t *dirname) {
  * byte into buffer. It returns 0 on success, 1 if less than
  * bytes byte could be read and 2 on failure.
  */
-uint8_t image_read(uint8_t part, DWORD offset, void *buffer, uint16_t bytes) {
+uint8_t fat_image_read(uint8_t part, DWORD offset, void *buffer, uint16_t bytes) {
   FRESULT res;
   UINT bytesread;
 
@@ -1643,7 +1584,7 @@ uint8_t image_read(uint8_t part, DWORD offset, void *buffer, uint16_t bytes) {
  * byte into buffer. It returns 0 on success, 1 if less than
  * bytes byte could be written and 2 on failure.
  */
-uint8_t image_write(uint8_t part, DWORD offset, void *buffer, uint16_t bytes, uint8_t flush) {
+uint8_t fat_image_write(uint8_t part, DWORD offset, void *buffer, uint16_t bytes, uint8_t flush) {
   FRESULT res;
   UINT byteswritten;
 
@@ -1695,5 +1636,8 @@ const PROGMEM fileops_t fatops = {  // These should be at bottom, to be consiste
   &fat_readdir,
   &fat_mkdir,
   &fat_chdir,
-  &fat_rename
+  &fat_rename,
+  &fat_image_unmount,
+  &fat_image_read,
+  &fat_image_write
 };

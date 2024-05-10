@@ -27,7 +27,9 @@
 #include "config.h"
 #include "buffers.h"
 #include "eeprom-conf.h"
+#ifdef CONFIG_HAVE_FATFS
 #include "fatops.h"
+#endif
 #include "i2c.h"
 #include "iec.h"
 #include "parser.h"

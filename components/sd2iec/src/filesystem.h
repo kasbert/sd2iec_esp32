@@ -26,23 +26,34 @@
 #ifndef FILESYSTEM_H
 #define FILESYSTEM_H
 
+#ifdef CONFIG_HAVE_FATFS
 #include "fatops.h"
+#endif
+#ifdef CONFIG_HAVE_EEPROMFS
 #include "eefs-ops.h"
+#endif
+#ifdef CONFIG_HAVE_VFS
+#include "vfsops.h"
+#endif
 
 // FIXME: Move d64_invalidate and maybe p00cache_invalidate out of fatops.c?
 
-#ifdef CONFIG_HAVE_EEPROMFS
 /* initialize both fatops and eefs */
 static inline void filesystem_init(uint8_t preserve_dir) {
+#ifdef CONFIG_HAVE_FATFS
   fatops_init(preserve_dir);
-  eefsops_init();
-}
-#else
-/* just fatops */
-static inline void filesystem_init(uint8_t preserve_dir) {
-  fatops_init(preserve_dir);
-}
 #endif
-
+#ifdef CONFIG_HAVE_EEPROMFS
+  eefsops_init();
+#endif
+#ifdef CONFIG_HAVE_VFS
+#if CONFIG_SD2IEC_USE_SDCARD
+  vfsops_init(preserve_dir, SDMOUNT_POINT);
+#endif
+#if CONFIG_SD2IEC_USE_SPI_PARTITION
+  vfsops_init(preserve_dir, SPIMOUNT_POINT);
+#endif
+#endif
+}
 
 #endif

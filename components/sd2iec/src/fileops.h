@@ -27,7 +27,7 @@
 #define FILEOPS_H
 
 #include "buffers.h"
-#include "dirent.h"
+#include "cbmdirent.h"
 #include "progmem.h"
 
 enum open_modes { OPEN_READ, OPEN_WRITE, OPEN_APPEND, OPEN_MODIFY };

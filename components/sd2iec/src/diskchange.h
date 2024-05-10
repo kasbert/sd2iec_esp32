@@ -26,7 +26,7 @@
 #ifndef DISKCHANGE_H
 #define DISKCHANGE_H
 
-#include "dirent.h"
+#include "cbmdirent.h"
 
 void change_init(void);
 void change_disk(void);

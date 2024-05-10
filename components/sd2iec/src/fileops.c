@@ -29,14 +29,16 @@
 #include "config.h"
 #include "buffers.h"
 #include "d64ops.h"
-#include "dirent.h"
+#include "cbmdirent.h"
 #include "display.h"
 #include "doscmd.h"
 #include "eefs-ops.h"
 #include "errormsg.h"
+#ifdef CONFIG_HAVE_FATFS
 #include "fatops.h"
-#include "flags.h"
 #include "ff.h"
+#endif
+#include "flags.h"
 #include "m2iops.h"
 #include "parser.h"
 #include "progmem.h"
@@ -326,8 +328,7 @@ static uint8_t dir_refill(buffer_t *buf) {
                      &dent)) {
   case 0:
     if (image_as_dir != IMAGE_DIR_NORMAL &&
-        dent.opstype == OPSTYPE_FAT &&
-        check_imageext(dent.pvt.fat.realname) != IMG_UNKNOWN) {
+        (dent.typeflags & FLAG_IMAGE)) {
       if (image_as_dir == IMAGE_DIR_DIR) {
         dent.typeflags = (dent.typeflags & 0xf0) | TYPE_DIR;
       } else {
@@ -381,7 +382,7 @@ static uint8_t rawdir_refill(buffer_t *buf) {
   memset(buf->data, 0, 32);
 
   if ((buf->pvt.dir.counter & 0x80) == 0) {
-    switch (readdir(&buf->pvt.dir.dh, &dent)) {
+    switch (w_readdir(&buf->pvt.dir.dh, &dent)) {
     case -1:
       /* last entry, switch to dummy entries */
       return rawdir_dummy_refill(buf);
@@ -397,8 +398,7 @@ static uint8_t rawdir_refill(buffer_t *buf) {
     }
 
     if (image_as_dir != IMAGE_DIR_NORMAL &&
-        dent.opstype == OPSTYPE_FAT &&
-        check_imageext(dent.pvt.fat.realname) != IMG_UNKNOWN) {
+        (dent.typeflags & FLAG_IMAGE)) {
       if (image_as_dir == IMAGE_DIR_DIR) {
         dent.typeflags = (dent.typeflags & 0xf0) | TYPE_DIR;
       } else {
@@ -503,7 +503,7 @@ static void load_directory(uint8_t secondary) {
       if (parse_path(command_buffer+pos, &path, &name, 0))
         return;
 
-      if (opendir(&buf->pvt.dir.dh, &path))
+      if (w_opendir(&buf->pvt.dir.dh, &path))
         return;
 
       buf->pvt.dir.matchstr = name;
@@ -597,13 +597,13 @@ static void load_directory(uint8_t secondary) {
         return;
       }
       path.dir = partition[path.part].current_dir;
-      if (opendir(&buf->pvt.dir.dh, &path))
+      if (w_opendir(&buf->pvt.dir.dh, &path))
         return;
     }
   } else {
     path.part = current_part;
     path.dir  = partition[path.part].current_dir;  // if you do not do this, get_label will fail below.
-    if (opendir(&buf->pvt.dir.dh, &path))
+    if (w_opendir(&buf->pvt.dir.dh, &path))
       return;
   }
 
@@ -934,7 +934,7 @@ void file_open(uint8_t secondary) {
 #endif
 
   /* Filename matching */
-  if (opendir(&matchdh, &path))
+  if (w_opendir(&matchdh, &path))
     return;
 
   do {

@@ -118,7 +118,7 @@ void load_dreamload(UNUSED_PARAMETER) {
 
   curpath.part = current_part;
   curpath.dir  = partition[current_part].current_dir;
-  opendir(&dh, &curpath);
+  w_opendir(&dh, &curpath);
 
   for (;;) {
 
@@ -147,8 +147,8 @@ void load_dreamload(UNUSED_PARAMETER) {
       } else if (fl_sector == 1) {
         // command: load first sector of directory
         // slow down 18/1 loading, so diskswap has a higher chance
-        tick_t targettime = ticks + MS_TO_TICKS(1000);
-        while (time_before(ticks,targettime)) ;
+        // TODO is this correct ?
+        delay_ms(1000);
 
         read_sector(buf, current_part, dh.dir.d64.track, dh.dir.d64.sector);
         dreamload_send_block(buf->data);

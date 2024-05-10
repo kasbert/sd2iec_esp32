@@ -25,12 +25,15 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <ctype.h>
 #include "config.h"
 #include "buffers.h"
-#include "dirent.h"
+#include "cbmdirent.h"
 #include "errormsg.h"
+#ifdef CONFIG_HAVE_FATFS
 #include "fatops.h"
 #include "ff.h"
+#endif
 #include "parser.h"
 #include "progmem.h"
 #include "rtc.h"
@@ -106,6 +109,46 @@ static void format_dnp_image(uint8_t part, buffer_t *buf, uint8_t *name, uint8_t
 /* ------------------------------------------------------------------------- */
 /*  Utility functions                                                        */
 /* ------------------------------------------------------------------------- */
+
+/**
+ * check_imageext - check for a known image file extension
+ * @name: pointer to the file name
+ *
+ * This function checks if the given file name has an extension that
+ * indicates a known image file type. Returns IMG_IS_M2I for M2I files,
+ * IMG_IS_DISK for D64/D41/D71/D81 files or IMG_UNKNOWN for an unknown
+ * file extension.
+ */
+imgtype_t check_imageext(uint8_t *name) {
+  uint8_t f,s,t;
+  uint8_t *ext = ustrrchr(name, '.');
+
+  if (ext == NULL)
+    return IMG_UNKNOWN;
+
+  if (ustrlen(ext) != 4)
+    return IMG_UNKNOWN;
+
+  f = toupper(*++ext);
+  s = toupper(*++ext);
+  t = toupper(*++ext);
+
+#ifdef CONFIG_M2I
+  if (f == 'M' && s == '2' && t == 'I')
+    return IMG_IS_M2I;
+#endif
+
+  if (f == 'D') {
+    if ((s == '6' && t == '4') ||
+        (s == 'N' && t == 'P') ||
+        ((s == '4' || s == '7' || s == '8') &&
+         (t == '1'))) {
+      return IMG_IS_DISK;
+    }
+  }
+
+  return IMG_UNKNOWN;
+}
 
 static const PROGMEM struct param_s d41param = {
   18, 1, 35, 0x90, 0xa2, 10, 3, format_d41_image
@@ -1202,10 +1245,9 @@ static uint8_t d64_write_cleanup(buffer_t *buf) {
 /*  fileops-API                                                              */
 /* ------------------------------------------------------------------------- */
 
-uint8_t d64_mount(path_t *path, uint8_t *name) {
+uint8_t d64_mount(path_t *path, uint8_t *name, uint32_t fsize) {
   uint8_t imagetype;
   uint8_t part = path->part;
-  uint32_t fsize = partition[part].imagehandle.fsize;
 
   switch (fsize) {
   case 174848:
@@ -1457,7 +1499,7 @@ static void d64_open_write(path_t *path, cbmdirent_t *dent, uint8_t type, buffer
   uint8_t *ptr;
 
   /* Check for read-only image file */
-  if (!(partition[path->part].imagehandle.flag & FA_WRITE)) {
+  if (partition[path->part].flag & FLAG_RO) {
     set_error(ERROR_WRITE_PROTECT);
     return;
   }
@@ -1623,6 +1665,24 @@ void d64_raw_directory(path_t *path, buffer_t *buf) {
   stick_buffer(buf);
 
   buf->refill(buf);
+}
+
+/**
+ * image_chdir - generic chdir for image files
+ * @path: path object of the location of dirname
+ * @dent: directory to be changed into
+ *
+ * This function will ignore any names except _ (left arrow)
+ * and unmount the image if that is found. It can be used as
+ * chdir for all image types that don't support subdirectories
+ * themselves. Returns 0 if successful, 1 otherwise.
+ */
+static uint8_t image_chdir(path_t *path, cbmdirent_t *dent) {
+  if (dent->name[0] == '_' && dent->name[1] == 0) {
+    /* Unmount request */
+    return image_unmount(path->part);
+  }
+  return 1;
 }
 
 /**

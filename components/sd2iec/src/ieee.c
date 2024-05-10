@@ -39,7 +39,9 @@
 #include "diskchange.h"
 #include "diskio.h"
 #include "doscmd.h"
+#ifdef CONFIG_HAVE_FATFS
 #include "fatops.h"
+#endif
 #include "fileops.h"
 #include "filesystem.h"
 #include "led.h"

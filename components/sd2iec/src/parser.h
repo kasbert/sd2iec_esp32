@@ -26,8 +26,10 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-#include "dirent.h"
+#include "cbmdirent.h"
+#ifdef CONFIG_HAVE_FATFS
 #include "ff.h"
+#endif
 
 extern partition_t partition[CONFIG_MAX_PARTITIONS];
 extern uint8_t current_part;

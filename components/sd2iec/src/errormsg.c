@@ -31,7 +31,9 @@
 #include "diskio.h"
 #include "display.h"
 #include "eeprom-conf.h"
+#ifdef CONFIG_HAVE_FATFS
 #include "fatops.h"
+#endif
 #include "flags.h"
 #include "led.h"
 #include "progmem.h"

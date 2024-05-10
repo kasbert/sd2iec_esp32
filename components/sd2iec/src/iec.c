@@ -42,7 +42,9 @@
 #include "errormsg.h"
 #include "fastloader.h"
 #include "fastloader-ll.h"
+#ifdef CONFIG_HAVE_FATFS
 #include "fatops.h"
+#endif
 #include "flags.h"
 #include "fileops.h"
 #include "filesystem.h"
@@ -573,13 +575,19 @@ void iec_mainloop(void) {
       parallel_set_dir(PARALLEL_DIR_IN);
       set_atn_irq(1);
       while (IEC_ATN) {
+#if defined(KEY_NEXT)+defined(KEY_PREV)+defined(KEY_HOME) > 0
         if (key_pressed(KEY_NEXT | KEY_PREV | KEY_HOME)) {
           change_disk();
-        } else if (key_pressed(KEY_SLEEP)) {
+        } else
+#endif
+#if defined(KEY_SLEEP)
+        if (key_pressed(KEY_SLEEP)) {
           reset_key(KEY_SLEEP);
           iec_data.bus_state = BUS_SLEEP;
           break;
-        } else if (display_found && key_pressed(KEY_DISPLAY)) {
+        } else
+#endif
+        if (display_found && key_pressed(KEY_DISPLAY)) {
           display_service();
           reset_key(KEY_DISPLAY);
         }

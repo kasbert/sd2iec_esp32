@@ -26,7 +26,7 @@
 #define BUFFERS_H
 
 #include <stdint.h>
-#include "dirent.h"
+#include "cbmdirent.h"
 
 #define ERRORBUFFER_IDX   CONFIG_BUFFER_COUNT
 #define BUFFER_SEC_SYSTEM 100
@@ -109,12 +109,22 @@ typedef struct buffer_s {
       date_t *match_end;   /* End matching date */
       uint8_t counter;     /* used for counting raw entries */
     } dir;
+#ifdef CONFIG_HAVE_FATFS
     struct {
       FIL fh;              /* File access via FAT */
       uint8_t headersize;  /* offset to start of file data */
     } fat;
+#endif
+#ifdef CONFIG_HAVE_VFS
+    struct {
+      int fd;              /* File access via FAT */
+      uint8_t headersize;  /* offset to start of file data */
+    } vfs;
+#endif
     d64fh_t d64;           /* File access on D64  */
+#ifdef CONFIG_HAVE_EEPROMFS
     eefs_fh_t eefh;        /* File handle for eepromfs */
+#endif
     struct {
       uint8_t part;        /* partition number for $=P */
       uint8_t *matchstr;   /* Pointer to filename pattern */

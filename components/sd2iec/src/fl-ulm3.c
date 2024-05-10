@@ -120,7 +120,7 @@ void load_uload3(UNUSED_PARAMETER) {
 
   curpath.part = current_part;
   curpath.dir  = partition[current_part].current_dir;
-  opendir(&dh, &curpath);
+  w_opendir(&dh, &curpath);
 
   while (1) {
     /* read command */

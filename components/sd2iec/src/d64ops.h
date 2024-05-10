@@ -52,7 +52,7 @@
 
 extern const fileops_t d64ops;
 
-uint8_t d64_mount(path_t *path, uint8_t *name);
+uint8_t d64_mount(path_t *path, uint8_t *name, uint32_t fsize);
 void    d64_unmount(uint8_t part);
 
 /* commit BAM buffer contents to storage medium */
@@ -60,5 +60,9 @@ uint8_t d64_bam_commit(void);
 
 void d64_raw_directory(path_t *path, buffer_t *buf);
 void d64_invalidate(void);
+
+typedef enum { IMG_UNKNOWN, IMG_IS_M2I, IMG_IS_DISK } imgtype_t;
+
+imgtype_t check_imageext(uint8_t *name);
 
 #endif

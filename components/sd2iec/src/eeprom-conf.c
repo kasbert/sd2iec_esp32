@@ -27,7 +27,9 @@
 #include "config.h"
 #include "arch-eeprom.h"
 #include "diskio.h"
+#ifdef CONFIG_HAVE_FATFS
 #include "fatops.h"
+#endif
 #include "flags.h"
 #include "iec.h"
 #include "timer.h"

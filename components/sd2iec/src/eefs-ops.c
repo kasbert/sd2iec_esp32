@@ -30,7 +30,9 @@
 #include "config.h"
 #include "eeprom-fs.h"
 #include "errormsg.h"
+#ifdef CONFIG_HAVE_FATFS
 #include "fatops.h"
+#endif
 #include "led.h"
 #include "parser.h"
 #include "ustring.h"

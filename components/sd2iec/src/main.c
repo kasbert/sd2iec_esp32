@@ -33,8 +33,10 @@
 #include "display.h"
 #include "eeprom-conf.h"
 #include "errormsg.h"
+#ifdef CONFIG_HAVE_FATFS
 #include "fatops.h"
 #include "ff.h"
+#endif
 #include "filesystem.h"
 #include "i2c.h"
 #include "led.h"

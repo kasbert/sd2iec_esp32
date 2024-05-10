@@ -177,12 +177,12 @@ static void scan_directory(void) {
   path.part = current_part;
   path.dir  = partition[path.part].current_dir;
 
-  if (opendir(&dh, &path)) {
+  if (w_opendir(&dh, &path)) {
     send_error();
   }
 
   while (1) {
-    res = readdir(&dh, &dent);
+    res = w_readdir(&dh, &dent);
 
     if (res > 0) {
       send_error();

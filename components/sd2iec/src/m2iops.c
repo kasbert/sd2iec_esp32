@@ -27,10 +27,12 @@
 #include <string.h>
 #include "config.h"
 #include "buffers.h"
-#include "dirent.h"
+#include "cbmdirent.h"
 #include "errormsg.h"
+#ifdef CONFIG_HAVE_FATFS
 #include "fatops.h"
 #include "ff.h"
+#endif
 #include "led.h"
 #include "parser.h"
 #include "progmem.h"
@@ -280,7 +282,7 @@ static void m2i_open_write(path_t *path, cbmdirent_t *dent, uint8_t type, buffer
   FRESULT res;
 
   /* Check for read-only image file */
-  if (!(partition[path->part].imagehandle.flag & FA_WRITE)) {
+  if (partition[path->part].flag & FLAG_RO) {
     set_error(ERROR_WRITE_PROTECT);
     return;
   }

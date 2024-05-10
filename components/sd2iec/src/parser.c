@@ -29,11 +29,14 @@
 #include <stdint.h>
 #include <string.h>
 #include "config.h"
-#include "dirent.h"
+#include "cbmdirent.h"
 #include "display.h"
 #include "eefs-ops.h"
+#include "d64ops.h"
 #include "errormsg.h"
+#ifdef CONFIG_HAVE_FATFS
 #include "fatops.h"
+#endif
 #include "flags.h"
 #include "ustring.h"
 #include "parser.h"
@@ -210,7 +213,7 @@ int8_t next_match(dh_t *dh, uint8_t *matchstr, date_t *start, date_t *end, uint8
   int8_t res;
 
   while (1) {
-    res = readdir(dh, dent);
+    res = w_readdir(dh, dent);
     if (res == 0) {
       /* Skip if the type doesn't match */
       if ((type & TYPE_MASK) &&
@@ -224,7 +227,7 @@ int8_t next_match(dh_t *dh, uint8_t *matchstr, date_t *start, date_t *end, uint8
 
       /* Skip if the name doesn't match */
       if (matchstr) {
-        if (dent->opstype == OPSTYPE_FAT) {
+        if (dent->opstype == OPSTYPE_FAT || dent->opstype == OPSTYPE_VFS) {
           /* FAT: Ignore case */
           if (!match_name(matchstr, dent, 1))
             continue;
@@ -266,7 +269,7 @@ int8_t next_match(dh_t *dh, uint8_t *matchstr, date_t *start, date_t *end, uint8
 int8_t first_match(path_t *path, uint8_t *matchstr, uint8_t type, cbmdirent_t *dent) {
   int8_t res;
 
-  if (opendir(&matchdh, path))
+  if (w_opendir(&matchdh, path))
     return 1;
 
   res = next_match(&matchdh, matchstr, NULL, NULL, type, dent);
@@ -322,7 +325,7 @@ uint8_t parse_path(uint8_t *in, path_t *path, uint8_t **name, uint8_t for_cd) {
         case '/':
           /* Double slash -> root */
           dent.name[0] = 0;
-          chdir(path, &dent);
+          w_chdir(path, &dent);
           break;
 
         case 0:
@@ -351,7 +354,7 @@ uint8_t parse_path(uint8_t *in, path_t *path, uint8_t **name, uint8_t for_cd) {
           if ((dent.typeflags & TYPE_MASK) != TYPE_DIR) {
             /* Not a directory */
             /* FIXME: Try to mount as image here so they can be accessed like a directory */
-            if (for_cd && saved == 0 && check_imageext(in) != IMG_UNKNOWN) {
+            if (for_cd && saved == 0 && (dent.typeflags & FLAG_IMAGE)) {
               /* no further path components, last one is an image file */
               *name = in;
               return 0;
@@ -362,7 +365,7 @@ uint8_t parse_path(uint8_t *in, path_t *path, uint8_t **name, uint8_t for_cd) {
           }
 
           /* Match found, move path */
-          chdir(path, &dent);
+          w_chdir(path, &dent);
           *end = saved;
           in = end;
           break;

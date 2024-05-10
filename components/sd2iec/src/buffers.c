@@ -25,9 +25,11 @@
 #include <stdint.h>
 #include <string.h>
 #include "config.h"
-#include "dirent.h"
+#include "cbmdirent.h"
 #include "errormsg.h"
+#ifdef CONFIG_HAVE_FATFS
 #include "ff.h"
+#endif
 #include "led.h"
 #include "buffers.h"
 

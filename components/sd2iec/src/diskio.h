@@ -72,8 +72,10 @@ typedef struct {
 
 DSTATUS disk_initialize (BYTE);
 DSTATUS disk_status (BYTE);
+#if defined(HAVE_SD) || defined(HAVE_ATA)
 DRESULT disk_read (BYTE, BYTE*, DWORD, BYTE);
 DRESULT disk_write (BYTE, const BYTE*, DWORD, BYTE);
+#endif
 #define disk_ioctl(a,b,c) RES_OK
 DRESULT disk_getinfo(BYTE drv, BYTE page, void *buffer);
 

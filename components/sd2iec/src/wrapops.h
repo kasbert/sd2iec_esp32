@@ -32,7 +32,9 @@
 
 #include "buffers.h"
 #include "fileops.h"
+#ifdef CONFIG_HAVE_FATFS
 #include "ff.h"
+#endif
 #include "progmem.h"
 
 /**
@@ -76,6 +78,9 @@ typedef struct fileops_s {
   void     (*mkdir)(path_t *path, uint8_t *dirname);
   uint8_t  (*chdir)(path_t *path, cbmdirent_t *dent);
   void     (*rename)(path_t *path, cbmdirent_t *oldname, uint8_t *newname);
+  uint8_t  (*image_unmount)(uint8_t part);
+  uint8_t  (*image_read)(uint8_t part, uint32_t offset, void *buffer, uint16_t bytes);
+  uint8_t  (*image_write)(uint8_t part, uint32_t offset, void *buffer, uint16_t bytes, uint8_t flush);
 } fileops_t;
 
 /* Helper-Define to avoid lots of typedefs */
@@ -98,10 +103,13 @@ typedef struct fileops_s {
 #define read_sector(buf,drv,t,s) ((pgmcall(partition[(drv)].fop->read_sector))(buf,drv,t,s))
 #define write_sector(buf,drv,t,s) ((pgmcall(partition[(drv)].fop->write_sector))(buf,drv,t,s))
 #define format(drv,name,id) ((pgmcall(partition[(drv)].fop->format))(drv,name,id))
-#define opendir(dh,path) ((pgmcall(partition[(path)->part].fop->opendir))(dh,path))
-#define readdir(dh,dent) ((pgmcall(partition[(dh)->part].fop->readdir))(dh,dent))
-#define mkdir(path,dir) ((pgmcall(partition[(path)->part].fop->mkdir))(path,dir))
-#define chdir(path,dent) ((pgmcall(partition[(path)->part].fop->chdir))(path,dent))
-#define rename(path,old,new) ((pgmcall(partition[(path)->part].fop->rename))(path,old,new))
+#define w_opendir(dh,path) ((pgmcall(partition[(path)->part].fop->opendir))(dh,path))
+#define w_readdir(dh,dent) ((pgmcall(partition[(dh)->part].fop->readdir))(dh,dent))
+#define w_mkdir(path,dir) ((pgmcall(partition[(path)->part].fop->mkdir))(path,dir))
+#define w_chdir(path,dent) ((pgmcall(partition[(path)->part].fop->chdir))(path,dent))
+#define w_rename(path,old,new) ((pgmcall(partition[(path)->part].fop->rename))(path,old,new))
+#define image_unmount(part)  ((pgmcall(partition[part].parent_fop->image_unmount))(part))
+#define image_read(part,offset,buffer,bytes) ((pgmcall(partition[part].parent_fop->image_read))(part,offset,buffer,bytes))
+#define image_write(part,offset,buffer,bytes,flush) ((pgmcall(partition[part].parent_fop->image_write))(part,offset,buffer,bytes,flush))
 
 #endif

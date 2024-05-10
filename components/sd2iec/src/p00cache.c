@@ -27,7 +27,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "config.h"
-#include "dirent.h"
+#include "cbmdirent.h"
 #include "p00cache.h"
 
 #include "uart.h"

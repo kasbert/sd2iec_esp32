@@ -50,6 +50,7 @@ uint8_t *ustr1tok(uint8_t *str, const uint8_t delim, uint8_t **saveptr);
 
 /* ASCII to PETSCII string conversion */
 void asc2pet(uint8_t *buf);
+void pet2asc(uint8_t *buf);
 // note: not moving pet2asc out of fatops saves 6 bytes on AVR
 
 #endif

@@ -87,33 +87,6 @@ static inline void set_intrq(uint8_t state) {
 }
 
 /**
- * pet2asc - convert string from PETSCII to ASCII
- * @buf: pointer to the string to be converted
- *
- * This function converts the string in the given buffer from PETSCII to
- * ASCII in-place. Modified for LCD use, substitutes _ with 0x01 to
- * use the custom "left arrow" character.
- */
-static void pet2asc(uint8_t *buf) {
-  uint8_t ch;
-  while (*buf) {
-    ch = *buf;
-    if (ch == 95) // left arrow, use custom LCD char
-      ch = 0x01;
-    if (ch > (128+64) && ch < (128+91))
-      ch -= 128;
-    else if (ch > (96-32) && ch < (123-32))
-      ch += 32;
-    else if (ch > (192-128) && ch < (219-128))
-      ch += 128;
-    else if (ch == 255)
-      ch = '~';
-    *buf = ch;
-    buf++;
-  }
-}
-
-/**
  * asc2pet - convert string from ASCII to PETSCII
  * @buf: pointer to the string to be converted
  *

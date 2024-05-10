@@ -29,7 +29,7 @@
 #include "config.h"
 #include "crc.h"
 #include "d64ops.h"
-#include "dirent.h"
+#include "cbmdirent.h"
 #include "diskchange.h"
 #include "diskio.h"
 #include "display.h"
@@ -37,8 +37,10 @@
 #include "errormsg.h"
 #include "fastloader.h"
 #include "fastloader-ll.h"
+#ifdef CONFIG_HAVE_FATFS
 #include "fatops.h"
 #include "ff.h"
+#endif
 #include "fileops.h"
 #include "filesystem.h"
 #include "flags.h"
@@ -56,7 +58,9 @@
 
 #define CURSOR_RIGHT 0x1d
 
+#ifdef FIXME
 static FIL romfile;
+#endif
 
 /* ---- Fastloader tables ---- */
 
@@ -309,6 +313,8 @@ static const PROGMEM uint8_t system_partition_info[] = {
 uint8_t globalflags;
 #endif
 
+uint8_t file_extension_mode;
+
 uint8_t command_buffer[CONFIG_COMMAND_BUFFER_SIZE+2];
 uint8_t command_length,original_length;
 
@@ -552,7 +558,7 @@ static void parse_mkdir(void) {
   }
   if (parse_path(command_buffer+2, &path, &name, 0))
     return;
-  mkdir(&path,name);
+  w_mkdir(&path,name);
 }
 
 /* --- CD --- */
@@ -574,14 +580,14 @@ void do_chdir(uint8_t *parsestr) {
     if (name[0] == '_') {
       /* Going up a level */
       ustrcpy(dent.name, name);
-      if (chdir(&path,&dent))
+      if (w_chdir(&path,&dent))
         return;
     } else {
       /* A directory name - try to match it */
       if (first_match(&path, name, FLAG_HIDDEN, &dent))
         return;
 
-      if (chdir(&path, &dent))
+      if (w_chdir(&path, &dent))
         return;
     }
   } else {
@@ -630,13 +636,13 @@ static void parse_rmdir(void) {
       return;
 
     /* Check if there is anything in that directory */
-    if (chdir(&path, &dent))
+    if (w_chdir(&path, &dent))
       return;
 
-    if (opendir(&dh, &path))
+    if (w_opendir(&dh, &path))
       return;
 
-    if (readdir(&dh, &chkdent) != -1) {
+    if (w_readdir(&dh, &chkdent) != -1) {
       if (current_error == 0)
         set_error(ERROR_FILE_EXISTS);
       return;
@@ -978,6 +984,7 @@ static void parse_direct(void) {
     }
     break;
 
+#if defined(HAVE_SD) || defined(HAVE_ATA)
   case 'R':
     /* Read sector */
     if (buf->pvt.buffer.size < 2) { // FIXME: Assumes 512-byte sectors
@@ -1025,6 +1032,7 @@ static void parse_direct(void) {
       set_error_ts(ERROR_DRIVE_NOT_READY,res,0);
       return;
     }
+#endif
 
   default:
     set_error(ERROR_SYNTAX_UNABLE);
@@ -1092,6 +1100,7 @@ static void parse_getpartition(void) {
     return;
   }
 
+#if FIXME
   uint8_t *inptr  = ops_scratch;
   uint8_t *outptr = ptr;
   while (*inptr)
@@ -1120,6 +1129,7 @@ static void parse_getpartition(void) {
   *ptr++ = (size >> 16) & 0xff;
   *ptr++ = (size >>  8) & 0xff;
   *ptr   = size & 0xff;
+#endif
 }
 
 
@@ -1151,7 +1161,6 @@ static void handle_memexec(void) {
 
 /* --- M-R --- */
 static void handle_memread(void) {
-  FRESULT res;
   uint16_t address, check;
   magic_value_t *p;
 
@@ -1161,6 +1170,8 @@ static void handle_memread(void) {
   address = command_buffer[3] + (command_buffer[4]<<8);
 
   if (address >= 0x8000 && rom_filename[0] != 0) {
+#if FIXME
+    FRESULT res;
     /* Try to use the rom file as data source - look in the current dir first */
     partition[current_part].fatfs.curr_dir = partition[current_part].current_dir.fat;
     res = f_open(&partition[current_part].fatfs, &romfile, rom_filename, FA_READ | FA_OPEN_EXISTING);
@@ -1209,6 +1220,7 @@ static void handle_memread(void) {
 
   } else {
   use_internal:
+#endif
     /* Check some special addresses used for drive detection. */
     p = (magic_value_t*) c1541_magics;
     while ( (check = pgm_read_word(&p->address)) ) {
@@ -1523,7 +1535,7 @@ static void parse_rename(void) {
   if (first_match(&oldpath, oldname, FLAG_HIDDEN, &dent))
     return;
 
-  rename(&oldpath, &dent, newname);
+  w_rename(&oldpath, &dent, newname);
 }
 
 
@@ -1547,7 +1559,7 @@ static void parse_scratch(void) {
   while (filename != NULL) {
     parse_path(filename, &path, &name, 0);
 
-    if (opendir(&matchdh, &path))
+    if (w_opendir(&matchdh, &path))
       return;
 
     while (1) {
