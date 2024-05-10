@@ -1,0 +1,72 @@
+menu "SD2IEC Configuration"
+
+    config SD2IEC_USE_SDCARD
+        bool "Enable SD interface"
+        default y
+
+        menu "SD SPI Configuration"
+            config SD2IEC_SD_FORMAT_IF_MOUNT_FAILED
+                bool "Format the card if mount failed"
+                default n
+                help
+                    If this config item is set, format_if_mount_failed will be set to true and the card will be formatted if
+                    the mount has failed.
+
+            config SD2IEC_SD_PIN_MOSI
+                int "MOSI PIN"
+                default 47
+
+            config SD2IEC_SD_PIN_MISO
+                int "MISO PIN"
+                default 41
+
+            config SD2IEC_SD_PIN_CLK
+                int "CLK PIN"
+                default 48
+
+            config SD2IEC_SD_PIN_CS
+                int "CS PIN"
+                default 42
+
+        endmenu
+
+        config SD2IEC_USE_SPI_PARTITION
+        bool "Use part of flash as a drive"
+        default y
+
+    config SD2IEC_ENABLE_IEC
+        bool "Enable IEC interface"
+        default y
+
+    config SD2IEC_ENABLE_IEE
+        bool "Enable IEE interface"
+        default n
+        comment "Not implemented"
+
+    config SD2IEC_PIN_CLK
+        int "IEC CLK GPIO number"
+        default 1
+
+    config SD2IEC_PIN_DATA
+        int "IEC DATA GPIO number"
+        default 2
+
+    config SD2IEC_PIN_ATN
+        int "IEC ATN GPIO number"
+        default 40
+
+    config SD2IEC_PIN_SRQ
+        int "IEC SRQ GPIO number"
+        default -1
+
+    config SD2IEC_PIN_LED_BUSY
+        int "BUSY LED GPIO number"
+        default -1
+        comment "BUSY led, recommended color: green (usage similiar to 1541 LED)"
+
+    config SD2IEC_PIN_LED_DIRTY
+        int "DIRTY LED GPIO number"
+        default -1
+        comment "DIRTY led, recommended color: red (errors, unwritten data in memory)"
+
+endmenu

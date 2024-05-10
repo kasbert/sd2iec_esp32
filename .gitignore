@@ -1,0 +1,7 @@
+build
+.vscode
+*.old
+*~
+*.swp
+trash
+managed_components
