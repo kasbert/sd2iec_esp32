@@ -5,3 +5,4 @@ build
 *.swp
 trash
 managed_components
+sdkconfig

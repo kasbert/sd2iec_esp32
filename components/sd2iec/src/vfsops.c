@@ -1569,8 +1569,9 @@ static uint8_t vfs_image_write(uint8_t part, DWORD offset, void *buffer, uint16_
   if (byteswritten != bytes)
     return 1;
 
-  if (flush)
-    puts("FIXME sync(");// partition[part].imagefd
+  if (flush) {
+    fsync(partition[part].imagefd);
+  }
 
   return 0;
 }
@@ -1580,6 +1581,7 @@ void format_dummy(uint8_t drive, uint8_t *name, uint8_t *id) {
   (void)drive;
   (void)name;
   (void)id;
+  // TODO implement
 
   set_error(ERROR_SYNTAX_UNKNOWN);
 }
