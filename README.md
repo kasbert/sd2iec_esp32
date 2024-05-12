@@ -23,16 +23,18 @@ See the original [README](components/sd2iec/README)
 # I/O
 
 Pins in my ESP32S3 board. Use menuconfig to change the values
-| CONFIG_SD2IEC_SD_PIN_MOSI | 47 |
-| CONFIG_SD2IEC_SD_PIN_MISO | 41 |
-| CONFIG_SD2IEC_SD_PIN_CLK | 48 |
-| CONFIG_SD2IEC_SD_PIN_CS | 42 |
-| CONFIG_SD2IEC_PIN_CLK | 1 |
-| CONFIG_SD2IEC_PIN_DATA | 2 |
-| CONFIG_SD2IEC_PIN_ATN | 40 |
-| CONFIG_SD2IEC_PIN_SRQ | -1 |
-| CONFIG_SD2IEC_PIN_LED_BUSY | -1 |
-| CONFIG_SD2IEC_PIN_LED_DIRTY | -1 |
+| Function                    | Pin |
+|-----------------------------|-----|
+| CONFIG_SD2IEC_SD_PIN_MOSI   |  47 |
+| CONFIG_SD2IEC_SD_PIN_MISO   |  41 |
+| CONFIG_SD2IEC_SD_PIN_CLK    |  48 |
+| CONFIG_SD2IEC_SD_PIN_CS     |  42 |
+| CONFIG_SD2IEC_PIN_CLK       |   1 |
+| CONFIG_SD2IEC_PIN_DATA      |   2 |
+| CONFIG_SD2IEC_PIN_ATN       |  40 |
+| CONFIG_SD2IEC_PIN_SRQ       |  -1 |
+| CONFIG_SD2IEC_PIN_LED_BUSY  |  -1 |
+| CONFIG_SD2IEC_PIN_LED_DIRTY |  -1 |
 
 Use a level shifter for CLK,DATA and ATN pins.
 
