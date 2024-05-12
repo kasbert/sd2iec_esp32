@@ -45,6 +45,7 @@ tick_t      lastbuttonchange;
 
 /* Called by the timer interrupt when the button state has changed */
 static void buttons_changed(void) {
+#if defined(BUTTON_NEXT) && defined(BUTTON_PREV)
   /* Check if the previous state was stable for two ticks */
   if (time_after(ticks, lastbuttonchange + DEBOUNCE_TICKS)) {
     if (active_keys & IGNORE_KEYS) {
@@ -66,6 +67,7 @@ static void buttons_changed(void) {
 
   lastbuttonchange = ticks;
   buttonstate = buttons_read();
+#endif
 }
 
 /* The main timer interrupt */
@@ -91,6 +93,7 @@ SYSTEM_TICK_HANDLER {
       toggle_dirty_led();
 #endif
 
+#if defined(BUTTON_NEXT) && defined(BUTTON_PREV)
   /* Sleep button triggers when held down for 2sec */
   if (time_after(ticks, lastbuttonchange + DEBOUNCE_TICKS)) {
     if (!(buttonstate & BUTTON_NEXT) &&
@@ -103,6 +106,7 @@ SYSTEM_TICK_HANDLER {
       lastbuttonchange = ticks;
     }
   }
+#endif
 
   /* send tick to the software RTC emulation */
   softrtc_tick();

@@ -39,6 +39,7 @@
 #include "progmem.h"
 #include "ustring.h"
 #include "utils.h"
+#include "doscmd.h"
 #include "errormsg.h"
 
 uint8_t current_error;
