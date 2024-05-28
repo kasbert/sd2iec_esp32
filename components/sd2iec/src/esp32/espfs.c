@@ -275,7 +275,7 @@ bool esp32fs_sdcard_format(char *mount_point) {
     return true;
 }
 
-bool sdcard_ismounted() {
+bool esp32fs_sdcard_ismounted() {
     return !!card;
 }
 

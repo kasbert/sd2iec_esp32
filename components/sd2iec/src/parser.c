@@ -354,7 +354,7 @@ uint8_t parse_path(uint8_t *in, path_t *path, uint8_t **name, uint8_t for_cd) {
           if ((dent.typeflags & TYPE_MASK) != TYPE_DIR) {
             /* Not a directory */
             /* FIXME: Try to mount as image here so they can be accessed like a directory */
-            if (for_cd && saved == 0 && (dent.typeflags & FLAG_IMAGE)) {
+            if (for_cd && saved == 0 && ((dent.typeflags & EXT_TYPE_MASK) == TYPE_D64)) {
               /* no further path components, last one is an image file */
               *name = in;
               return 0;

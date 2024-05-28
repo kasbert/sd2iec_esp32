@@ -54,6 +54,11 @@
 /* Internal file types used for the partition directory */
 #define TYPE_NAT 8
 
+#define TYPE_M2I 11
+#define TYPE_D64 12
+#define TYPE_X00 13 /* temporary */
+#define TYPE_UNK 14 /* temporary */
+
 /* Internal file type used to force files without header on FAT (for M2I) */
 #define TYPE_RAW 15
 
@@ -61,7 +66,6 @@
 #define FLAG_HIDDEN (1<<5)
 #define FLAG_RO     (1<<6)
 #define FLAG_SPLAT  (1<<7)
-#define FLAG_IMAGE  (1<<8)
 
 /* forward declaration to avoid an include loop */
 struct buffer_s;
@@ -177,7 +181,7 @@ typedef enum {
  */
 typedef struct {
   uint8_t   name[CBM_NAME_LENGTH+1];
-  uint16_t  typeflags;
+  uint8_t   typeflags;
   uint16_t  blocksize;
   uint8_t   remainder;
   date_t    date;
@@ -243,7 +247,13 @@ typedef struct dh_s {
     struct d64dh d64;
 #ifdef CONFIG_HAVE_VFS
     struct {
+#ifdef NO_ORDER
       DIR *dirp;
+#else
+      struct dirent **namelist;
+      int count;
+      int i;
+#endif
       char pathname[512]; // FIXME
     } vfs;
 #endif

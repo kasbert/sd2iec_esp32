@@ -32,6 +32,7 @@
 #include <esp_timer.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/timers.h>
+#include <freertos/task.h>
 #include <string.h>
 
 #include "espfs.h"
@@ -46,6 +47,8 @@ int32_t arch_timeout;
 // Own "watchdog"
 volatile uint64_t last_system_sleep;
 
+volatile int system_initialized;
+
 volatile static char interrupt_happens;
 
 static TaskHandle_t system_task_handle;
@@ -57,10 +60,18 @@ StackType_t xStack[SYSTEM_STACK_SIZE];
 
 extern int main();
 
-bool sd2iec_system_init() {
+esp_err_t sd2iec_system_init() {
   system_task_handle = xTaskCreateStaticPinnedToCore(
       main, "system", SYSTEM_STACK_SIZE, 0, 24, xStack, &xTaskBuffer, 1);
-  return true;
+
+  ESP_LOGI(TAG, "Waiting for system initializing");
+  extern volatile int system_initialized;
+  while (!system_initialized) {
+    vTaskDelay(pdMS_TO_TICKS(100));
+  }
+  ESP_LOGI(TAG, "System is initialized");
+
+  return ESP_OK;
 }
 
 static void led_timer_callback(TimerHandle_t arg) {
@@ -91,6 +102,10 @@ void enable_interrupts(void) {
 /* Early system initialisation */
 void system_init_early(void) {
   // disable_interrupts();
+#ifdef CONFIG_SD2IEC_USE_DISPLAY
+void  display_init_early();
+  display_init_early();
+#endif
   return;
 }
 
@@ -137,7 +152,9 @@ void set_changelist(path_t *path, uint8_t *filename) {
 }
 
 void change_init(void) {
-  ESP_LOGE(TAG, "FIXME change_init");
+  ESP_LOGI(TAG, "FIXME change_init");
+  // This is called quite late in main
+  system_initialized = 1;
 }
 
 void change_disk(void) {
@@ -225,6 +242,9 @@ void system_pin_intr_handler() {
   portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 }
 
+void system_wake() {
+  xTaskNotifyGiveIndexed(system_task_handle, 0);
+}
 
 void system_sleep(void) {
   /* TODO check keys
@@ -234,6 +254,12 @@ void system_sleep(void) {
   uart_putc('<');
   last_system_sleep = esp_timer_get_time();
   while (!interrupt_happens && IEC_ATN) {
+#ifdef CONFIG_SD2IEC_USE_DISPLAY
+    bool display_receive(void) ;
+    if (display_receive()) {
+      continue;
+    }
+#endif
     // Wait for gpio interrupt
     uint32_t ulNotificationValue =
         ulTaskNotifyTakeIndexed(0, pdTRUE, pdMS_TO_TICKS(1000));
@@ -246,6 +272,12 @@ void system_sleep(void) {
   // uart_putcrlf();
   interrupt_happens = 0;
   return;
+}
+
+bool is_system_lagging() {
+  int64_t now = esp_timer_get_time();
+  return (now - last_system_sleep > 60 * 1000000L
+    && !(!IEC_ATN && !IEC_CLOCK && !IEC_DATA));
 }
 
 // test utility

@@ -829,7 +829,7 @@ static void parse_copy(void) {
       goto cleanup;
 
     /* Note: A 1541 can't copy REL files. We try to do better. */
-    if ((dent.typeflags & TYPE_MASK) == TYPE_REL) {
+    if ((dent.typeflags & EXT_TYPE_MASK) == TYPE_REL) {
       if (savedtype != 0 && savedtype != TYPE_REL) {
         set_error(ERROR_FILE_TYPE_MISMATCH);
         goto cleanup;
@@ -848,7 +848,7 @@ static void parse_copy(void) {
 
     /* Open the destination file (first source only) */
     if (savedtype == 0) {
-      savedtype = dent.typeflags & TYPE_MASK;
+      savedtype = dent.typeflags & EXT_TYPE_MASK;
       memset(&dent, 0, sizeof(dent));
       ustrncpy(dent.name, dstname, CBM_NAME_LENGTH);
       if (savedtype == TYPE_REL)
@@ -1570,7 +1570,7 @@ static void parse_scratch(void) {
         return;
 
       /* Skip directories */
-      if ((dent.typeflags & TYPE_MASK) == TYPE_DIR)
+      if ((dent.typeflags & EXT_TYPE_MASK) >= TYPE_DIR)
         continue;
       cnt = file_delete(&path, &dent);
       if (cnt != 255)

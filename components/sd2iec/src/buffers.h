@@ -117,8 +117,13 @@ typedef struct buffer_s {
 #endif
 #ifdef CONFIG_HAVE_VFS
     struct {
-      int fd;              /* File access via FAT */
+      int fd;              /* File access via VFS */
       uint8_t headersize;  /* offset to start of file data */
+      /*
+      uint32_t fsize;
+      uint32_t dpos;
+      uint8_t *data;
+      */
     } vfs;
 #endif
     d64fh_t d64;           /* File access on D64  */

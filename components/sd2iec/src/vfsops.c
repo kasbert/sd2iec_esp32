@@ -72,8 +72,6 @@ static const char *TAG = "vfsops";
 static const PROGMEM char p00marker[] = "C64File";
 #define P00MARKER_LENGTH 7
 
-typedef enum { EXT_UNKNOWN, EXT_IS_X00, EXT_IS_TYPE } exttype_t;
-
 /* ------------------------------------------------------------------------- */
 /*  Utility functions                                                        */
 /* ------------------------------------------------------------------------- */
@@ -154,25 +152,47 @@ void parse_error(int res, uint8_t readflag) {
  * any is present or NULL if not. Returns EXT_IS_X00 for x00,
  * EXT_IS_TYPE for PRG/SEQ/... or EXT_UNKNOWN for an unknown file extension.
  */
-static exttype_t check_extension(char *name, char **ext) {
+static uint8_t check_extension(char *name, char **ext) {
   uint8_t f,s,t;
 
   /* Search for the file extension */
-  if ((*ext = strrchr(name, '.')) != NULL) {
-    f = toupper(*(++(*ext)));
-    s = toupper(*(*ext+1));
-    t = toupper(*(*ext+2));
-    if ((f == 'P' || f == 'S' ||
-         f == 'U' || f == 'R') &&
-        isdigit(s) && isdigit(t))
-      return EXT_IS_X00;
-    else if ((f=='P' && s == 'R' && t == 'G') ||
-             (f=='S' && s == 'E' && t == 'Q') ||
-             (f=='R' && s == 'E' && t == 'L') ||
-             (f=='U' && s == 'S' && t == 'R'))
-      return EXT_IS_TYPE;
+  *ext = strrchr(name, '.');
+  if (*ext == NULL) {
+    return TYPE_UNK;
   }
-  return EXT_UNKNOWN;
+  if (ustrlen(*ext) != 4)
+    return TYPE_UNK;
+  ++(*ext);
+  f = toupper(*(*ext));
+  s = toupper(*(*ext+1));
+  t = toupper(*(*ext+2));
+  if ((f == 'P' || f == 'S' ||
+        f == 'U' || f == 'R') &&
+      isdigit(s) && isdigit(t))
+    return TYPE_X00;
+  if (f=='P' && s == 'R' && t == 'G')
+    return TYPE_PRG;
+  if (f=='S' && s == 'E' && t == 'Q')
+    return TYPE_SEQ;
+  if (f=='R' && s == 'E' && t == 'L')
+    return TYPE_REL;
+  if (f=='U' && s == 'S' && t == 'R')
+    return TYPE_USR;
+
+#ifdef CONFIG_M2I
+  if (f == 'M' && s == '2' && t == 'I')
+    return TYPE_M2I;
+#endif
+
+  if (f == 'D') {
+    if ((s == '6' && t == '4') ||
+        (s == 'N' && t == 'P') ||
+        ((s == '4' || s == '7' || s == '8') &&
+         (t == '1'))) {
+      return TYPE_D64;
+    }
+  }
+  return TYPE_UNK;
 }
 
 /**
@@ -859,17 +879,33 @@ void vfs_open_rel(path_t *path, cbmdirent_t *dent, buffer_t *buf, uint8_t length
 /*  External interface for the various operations                            */
 /* ------------------------------------------------------------------------- */
 
+int alphasort (const struct dirent **a, const struct dirent **b) {
+  return strcoll((*a)->d_name, (*b)->d_name);
+}
+
+
 uint8_t vfs_opendir(dh_t *dh, path_t *path) {
   char buffer[512]; // FIXME
   vfs_path(buffer, path, "");
+#ifdef NO_ORDER
   DIR *dirp = opendir(buffer);
-//printf ("OPENDIR %p part %d '%s' %p\n", dh, path->part, buffer, dirp);
   if (!dirp) {
     parse_error(errno,1);
     return 1;
   }
-  dh->part = path->part;
   dh->dir.vfs.dirp = dirp;
+#else
+  struct dirent **namelist;
+  int n = scandir(buffer, &namelist, NULL, alphasort);
+  if (n == -1) {
+    parse_error(errno,1);
+    return 1;
+  }
+  dh->dir.vfs.i = 0;
+  dh->dir.vfs.count = n;
+  dh->dir.vfs.namelist = namelist;
+#endif
+  dh->part = path->part;
   strcpy(dh->dir.vfs.pathname, buffer);
   return 0;
 }
@@ -888,9 +924,25 @@ int8_t vfs_readdir(dh_t *dh, cbmdirent_t *dent) {
 
   do {
     errno = 0;
+#ifdef NO_ORDER
     de = readdir(dh->dir.vfs.dirp);
-    if (!de) {
-//printf("readdir %p %p\n", dh->dir.vfs.dirp, de);
+#else
+  if (dh->dir.vfs.i < dh->dir.vfs.count) {
+    de = dh->dir.vfs.namelist[dh->dir.vfs.i];
+    dh->dir.vfs.i++;
+  } else {
+    de = 0;
+  }
+#endif
+  if (!de) {
+#ifdef NO_ORDER
+    closedir(dh->dir.vfs.dirp)
+#else
+    while(dh->dir.vfs.count--) {
+      free(dh->dir.vfs.namelist[dh->dir.vfs.count]);
+    }
+    free(dh->dir.vfs.namelist);
+#endif
       if (errno) {
         parse_error(errno,1);
         return -1;
@@ -923,20 +975,19 @@ int8_t vfs_readdir(dh_t *dh, cbmdirent_t *dent) {
   asc2pet(nameptr);
   //ESP_LOGI(TAG, "HELLO '%s' '%s'",nameptr,de->d_name);
 
-  /* File type */
-  uint8_t typechar;
   if (de->d_type == DT_DIR) {
     dent->typeflags = TYPE_DIR;
 
   } else {
     char *ptr;
     /* Search for the file extension */
-    exttype_t ext = check_extension(de->d_name, &ptr);
-    if (ext == EXT_IS_X00) {
+    uint8_t typeflags = check_extension(de->d_name, &ptr);
+    //ESP_LOGI(TAG, "TYPE '%s' %d",ptr ? ptr : "", typeflags);
+    if (typeflags == TYPE_X00) {
       /* [PSRU]00 file - try to read the internal name */
       uint32_t crc = crc32_le(0, (uint8_t*)buffer, strlen(de->d_name));
       uint8_t *name = p00cache_lookup(dh->part, crc);
-      typechar = *ptr;
+      typeflags = TYPE_UNK;
 
       if (name != NULL) {
         /* lookup successful */
@@ -974,37 +1025,20 @@ int8_t vfs_readdir(dh_t *dh, cbmdirent_t *dent) {
       }
       fsize -= P00_HEADER_SIZE;
       dent->opstype = OPSTYPE_VFS_X00;
+      typeflags = check_extension((char*)nameptr, &ptr);
 
-    } else if (ext == EXT_IS_TYPE && (globalflags & EXTENSION_HIDING)) {
+    } else if ((typeflags != TYPE_UNK) && (globalflags & EXTENSION_HIDING)) {
       /* Type extension */
-      typechar = toupper(*ptr);
       uint8_t i = ustrlen(nameptr)-4;
       nameptr[i] = 0;
-
-    } else { /* ext == EXT_UNKNOWN or EXT_IS_TYPE but hiding disabled */
-      /* Unknown extension: PRG */
-      typechar = 'P';
     }
 
   notp00:
-    /* Set the file type */
-    switch (typechar) {
-    case 'P':
-      dent->typeflags = TYPE_PRG;
-      break;
-
-    case 'S':
-      dent->typeflags = TYPE_SEQ;
-      break;
-
-    case 'U':
-      dent->typeflags = TYPE_USR;
-      break;
-
-    case 'R':
-      dent->typeflags = TYPE_REL;
-      break;
+    if (typeflags == TYPE_UNK) { /* ext == EXT_UNKNOWN or EXT_IS_TYPE but hiding disabled */
+      /* Unknown extension: PRG */
+      typeflags = TYPE_PRG;
     }
+    dent->typeflags = typeflags;
   }
 
   /* Copy file name into dirent if it fits */
@@ -1028,10 +1062,6 @@ int8_t vfs_readdir(dh_t *dh, cbmdirent_t *dent) {
   /* Hide files/directories starting with . */
   if (*nameptr == '.')
     dent->typeflags |= FLAG_HIDDEN;
-
-  if (check_imageext((uint8_t *)de->d_name) != IMG_UNKNOWN) {
-    dent->typeflags |= FLAG_IMAGE;
-  }
 
   /* Read-Only and hidden flags */
 #if _FIXME
@@ -1108,7 +1138,7 @@ uint8_t vfs_chdir(path_t *path, cbmdirent_t *dent) {
     return 0;
   }
 
-  if ((dent->typeflags & TYPE_MASK) == TYPE_DIR) {
+  if ((dent->typeflags & EXT_TYPE_MASK) == TYPE_DIR) {
     /* It's a directory, change to it */
     res = _vfs_chdir(path, (char*)dent->pvt.vfs.realname);
     if (res) {
@@ -1120,40 +1150,38 @@ uint8_t vfs_chdir(path_t *path, cbmdirent_t *dent) {
   }
 //printf("vfs_chdir NO DIR %s \n", dent->name);
   /* Changing into a file, could be a mount request */
-  if (!(dent->typeflags & FLAG_IMAGE)) {
-    return 0;
-  }
-  /* D64/M2I mount request */
-  free_multiple_buffers(FMB_USER_CLEAN);
-  /* Open image file */
-  int fd = vfs_open(path, dent, O_RDWR);
-  partition[path->part].flag = 0;
-  /* Try to open read-only if medium or file is read-only */
-  if (fd < 0) {
-    fd = vfs_open(path, dent, O_RDONLY);
-    partition[path->part].flag = FLAG_RO;
-  }
-  if (fd < 0) {
-    parse_error(errno,1);
-    return 1;
-  }
-
-#ifdef CONFIG_M2I
-  if (check_imageext(dent->pvt.vfs.realname) == IMG_IS_M2I)
-    partition[path->part].fop = &m2iops;
-    partition[path->part].parent_fop = &vfsops;
-  else
-#endif
-    {
-      uint32_t fsize = vfs_size(fd);
-      if (d64_mount(path, (uint8_t *)dent->pvt.vfs.realname, fsize)) {
-        close(fd);
-        return 1;
-      }
-      partition[path->part].fop = &d64ops;
-      partition[path->part].parent_fop = &vfsops;
+  if ((dent->typeflags & EXT_TYPE_MASK) == TYPE_D64 || (dent->typeflags & EXT_TYPE_MASK) == TYPE_M2I) {
+    /* D64/M2I mount request */
+    free_multiple_buffers(FMB_USER_CLEAN);
+    /* Open image file */
+    int fd = vfs_open(path, dent, O_RDWR);
+    partition[path->part].flag = 0;
+    /* Try to open read-only if medium or file is read-only */
+    if (fd < 0) {
+      fd = vfs_open(path, dent, O_RDONLY);
+      partition[path->part].flag = FLAG_RO;
     }
-  partition[path->part].imagefd = fd;
+    if (fd < 0) {
+      parse_error(errno,1);
+      return 1;
+    }
+#ifdef CONFIG_M2I
+    if ((dent->typeflags & EXT_TYPE_MASK) == TYPE_M2I) {
+      partition[path->part].fop = &m2iops;
+      partition[path->part].parent_fop = &vfsops;
+      partition[path->part].imagefd = fd;
+      return 0;
+    }
+#endif
+    uint32_t fsize = vfs_size(fd);
+    if (d64_mount(path, (uint8_t *)dent->pvt.vfs.realname, fsize)) {
+      close(fd);
+      return 1;
+    }
+    partition[path->part].fop = &d64ops;
+    partition[path->part].parent_fop = &vfsops;
+    partition[path->part].imagefd = fd;
+  }
   return 0;
 }
 
@@ -1372,7 +1400,10 @@ void vfs_rename(path_t *path, cbmdirent_t *dent, uint8_t *newname) {
   } else {
     char *ext;
     switch (check_extension(dent->pvt.vfs.realname, &ext)) {
-    case EXT_IS_TYPE:
+    case TYPE_REL:
+    case TYPE_PRG:
+    case TYPE_SEQ:
+    case TYPE_USR:
       /* Keep type extension */
       ustrcpy(ops_scratch, newname);
       build_name((char*)ops_scratch, dent->typeflags & TYPE_MASK);
@@ -1607,3 +1638,104 @@ const PROGMEM fileops_t vfsops = {  // These should be at bottom, to be consiste
   &vfs_image_read,
   &vfs_image_write,
 };
+
+ /* Copyright (C) 1992-1998, 2000 Free Software Foundation, Inc.
+    This file is part of the GNU C Library.
+ 
+    The GNU C Library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Library General Public License as
+    published by the Free Software Foundation; either version 2 of the
+    License, or (at your option) any later version.
+ 
+    The GNU C Library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Library General Public License for more details.
+ 
+    You should have received a copy of the GNU Library General Public
+    License along with the GNU C Library; see the file COPYING.LIB.  If not,
+    write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+    Boston, MA 02111-1307, USA.  */
+ 
+ /*
+  * $Id: scandir.c,v 1.1 2002-12-05 01:50:22 rtv Exp $
+  *
+  * taken from glibc, modified slightly for standalone compilation, and used as
+  * a fallback implementation when scandir() is not available. - BPG
+  */
+ 
+ #include <dirent.h>
+ #include <stdlib.h>
+ #include <string.h>
+ #include <errno.h>
+ 
+ int
+ scandir(dir, namelist, select, cmp)
+      const char *dir;
+      struct dirent ***namelist;
+      int (*select) (const struct dirent *);
+      int (*cmp) (const struct dirent **, const struct dirent **);
+ {
+   DIR *dp = opendir (dir);
+   struct dirent **v = NULL;
+   size_t vsize = 0, i;
+   struct dirent *d;
+   int save;
+ 
+   if (dp == NULL)
+     return -1;
+ 
+   save = errno;
+   errno = 0;
+ 
+   i = 0;
+   while ((d = readdir (dp)) != NULL)
+     if (select == NULL || (*select) (d))
+       {
+         struct dirent *vnew;
+         size_t dsize;
+ 
+         /* Ignore errors from select or readdir */
+         errno = 0;
+ 
+         if (i == vsize)
+           {
+             struct dirent **new;
+             if (vsize == 0)
+               vsize = 10;
+             else
+               vsize *= 2;
+             new = (struct dirent **) realloc (v, vsize * sizeof (*v));
+             if (new == NULL)
+               break;
+             v = new;
+           }
+ 
+         dsize = &d->d_name[strlen(d->d_name)+1] - (char *) d;
+         vnew = (struct dirent *) malloc (dsize);
+         if (vnew == NULL)
+           break;
+ 
+         v[i++] = (struct dirent *) memcpy (vnew, d, dsize);
+       }
+ 
+   if (errno != 0)
+     {
+       save = errno;
+       (void) closedir (dp);
+       while (i > 0)
+         free (v[--i]);
+       free (v);
+       errno = save;
+       return -1;
+     }
+ 
+   (void) closedir (dp);
+   errno = save;
+ 
+   /* Sort the list if we have a comparison function to sort with.  */
+   if (cmp != NULL)
+     qsort (v, i, sizeof (*v), cmp);
+   *namelist = v;
+   return i;
+ }

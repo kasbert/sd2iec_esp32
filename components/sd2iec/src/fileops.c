@@ -114,6 +114,10 @@ const PROGMEM uint8_t filetypes[] = {
   '4','1',' ', // 9
   '7','1',' ', // 10
   '8','1',' ', // 11
+  'D','6','4', // 12
+  'X','0','0', // 13
+  '?','1','4', // 14
+  '?','1','5', // 15
 };
 
 /* ------------------------------------------------------------------------- */
@@ -328,7 +332,7 @@ static uint8_t dir_refill(buffer_t *buf) {
                      &dent)) {
   case 0:
     if (image_as_dir != IMAGE_DIR_NORMAL &&
-        (dent.typeflags & FLAG_IMAGE)) {
+        ((dent.typeflags & EXT_TYPE_MASK) == TYPE_D64)) {
       if (image_as_dir == IMAGE_DIR_DIR) {
         dent.typeflags = (dent.typeflags & 0xf0) | TYPE_DIR;
       } else {
@@ -398,7 +402,7 @@ static uint8_t rawdir_refill(buffer_t *buf) {
     }
 
     if (image_as_dir != IMAGE_DIR_NORMAL &&
-        (dent.typeflags & FLAG_IMAGE)) {
+        ((dent.typeflags & EXT_TYPE_MASK) == TYPE_D64)) {
       if (image_as_dir == IMAGE_DIR_DIR) {
         dent.typeflags = (dent.typeflags & 0xf0) | TYPE_DIR;
       } else {
