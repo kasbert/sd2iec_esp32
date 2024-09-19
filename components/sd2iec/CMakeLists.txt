@@ -33,6 +33,7 @@ idf_component_register(SRCS
         "src/esp32/uart.c"
         "src/esp32/espfs.c"
         "src/esp32/debug.c"
+        "src/esp32/esp-display.c"
         "src/esp32/llfl-common.c"
         "src/esp32/llfl-ar6.c"
         "src/esp32/llfl-dreamload.c"

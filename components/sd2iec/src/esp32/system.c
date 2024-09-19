@@ -39,6 +39,7 @@
 #include "cbmdirent.h"
 #include "iec-bus.h"
 #include "diskio.h"
+#include "esp-display.h"
 
 static const char *TAG = "system";
 
@@ -47,7 +48,7 @@ int32_t arch_timeout;
 // Own "watchdog"
 volatile uint64_t last_system_sleep;
 
-volatile int system_initialized;
+static volatile int system_initialized;
 
 volatile static char interrupt_happens;
 
@@ -65,7 +66,6 @@ esp_err_t sd2iec_system_init() {
       main, "system", SYSTEM_STACK_SIZE, 0, 24, xStack, &xTaskBuffer, 1);
 
   ESP_LOGI(TAG, "Waiting for system initializing");
-  extern volatile int system_initialized;
   while (!system_initialized) {
     vTaskDelay(pdMS_TO_TICKS(100));
   }
@@ -152,9 +152,27 @@ void set_changelist(path_t *path, uint8_t *filename) {
 }
 
 void change_init(void) {
-  ESP_LOGI(TAG, "FIXME change_init");
+  ESP_LOGI(TAG, "change_init");
+  // Misuse this init function.
   // This is called quite late in main
   system_initialized = 1;
+
+  if (!IEC_ATN) {
+    ESP_LOGW(TAG, "Waiting for host to power up (ATN is low)");
+    // ATN stays low if cable is connected and Commodore is switched off
+    // Wait for Commodore to be powered up.
+    while (!IEC_ATN) {
+  #ifdef CONFIG_SD2IEC_USE_DISPLAY
+      system_message msg;
+      if (system_receive_message(&msg)) {
+        system_display_service(&msg);
+        continue;
+      }
+  #endif
+      vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    ESP_LOGW(TAG, "Continue!!");
+  }
 }
 
 void change_disk(void) {
@@ -255,8 +273,9 @@ void system_sleep(void) {
   last_system_sleep = esp_timer_get_time();
   while (!interrupt_happens && IEC_ATN) {
 #ifdef CONFIG_SD2IEC_USE_DISPLAY
-    bool display_receive(void) ;
-    if (display_receive()) {
+    system_message msg;
+    if (system_receive_message(&msg)) {
+      system_display_service(&msg);
       continue;
     }
 #endif

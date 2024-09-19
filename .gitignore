@@ -6,3 +6,5 @@ build
 trash
 managed_components
 sdkconfig
+**/bin/main
+*.code-workspace

@@ -1,0 +1,6 @@
+menu "SD2IEC TOP configuration"
+    config SD2IEC_USE_DISPLAY
+        bool "Enable Display"
+        default y
+
+endmenu

@@ -9,11 +9,27 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#if CONFIG_SD2IEC_USE_DISPLAY
+#include "ui.h"
+#endif
+
 static const char *TAG = "app_main";
 
 void app_main(void) {
-  bool sd2iec_system_init(void);
-  sd2iec_system_init();
+
+#if CONFIG_SD2IEC_USE_DISPLAY
+  esp_err_t sd2iec_lcd_hw_init(void);
+  ESP_ERROR_CHECK(sd2iec_lcd_hw_init());
+#endif
+
+  esp_err_t sd2iec_system_init(void);
+  ESP_ERROR_CHECK(sd2iec_system_init());
+
+#if CONFIG_SD2IEC_USE_DISPLAY
+  esp_err_t sd2iec_display_init();
+  ESP_LOGI(TAG, "Initialize UI");
+  ESP_ERROR_CHECK(sd2iec_display_init());
+#endif
 
   volatile int64_t next_debug = esp_timer_get_time() + 1000000L;
   while (1) {
@@ -24,14 +40,20 @@ void app_main(void) {
       next_debug = now + 10000000L;
     }
 
-    extern volatile uint64_t last_system_sleep;
-    if (now - last_system_sleep > 60 * 1000000L) {
-      ESP_LOGE(TAG, "system is lagging");
-      if (now - last_system_sleep > 300 * 1000000L) {
-        //assert(0);
-        break;
-      }
+#if CONFIG_SD2IEC_USE_DISPLAY
+    extern bool is_ui_lagging();
+    if (is_ui_lagging()) {
+      ESP_LOGE(TAG, "ui is lagging");
+      assert(0);
     }
+#endif
+
+    extern bool is_system_lagging();
+    if (is_system_lagging()) {
+      ESP_LOGE(TAG, "system is lagging");
+      assert(0);
+    }
+
     vTaskDelay(pdMS_TO_TICKS(1000));
   }
 
