@@ -92,8 +92,9 @@ static inline void buttons_init(void) {}
 //#define BUTTON_NEXT 1
 //#define BUTTON_PREV 2
 
+extern uint8_t hardaddress;
 static inline void device_hw_address_init(void) {}
-static inline int device_hw_address() { return 8; }
+static inline int device_hw_address() { return hardaddress; }
 #define SPI_SPEED_SLOW 0
 static inline void spi_init(int speed) {}
 static inline unsigned int display_intrq_active(void) { return 0; }

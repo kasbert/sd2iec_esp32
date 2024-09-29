@@ -50,6 +50,7 @@ static void browser_file_event_handler(lv_event_t * e);
     static void quick_access_event_handler(lv_event_t * e);
     static void quick_access_area_event_handler(lv_event_t * e);
 #endif
+static void draw_event_cb(lv_event_t * e);
 
 static void init_style(lv_obj_t * obj);
 static void show_dir(lv_obj_t * obj, const char * path);
@@ -350,6 +351,9 @@ static void lv_file_explorer_constructor(const lv_obj_class_t * class_p, lv_obj_
     /*only scroll up and down*/
     lv_obj_set_scroll_dir(explorer->file_table, LV_DIR_TOP | LV_DIR_BOTTOM);
 
+    lv_obj_add_event_cb(explorer->file_table, draw_event_cb, LV_EVENT_DRAW_TASK_ADDED, explorer);
+    lv_obj_add_flag(explorer->file_table, LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS);
+
     /*Initialize style*/
     init_style(obj);
 
@@ -440,6 +444,66 @@ static void init_style(lv_obj_t * obj)
 
 }
 
+void lv_file_explorer_set_highlight_row(lv_obj_t * obj, int row)
+{
+    LV_ASSERT_OBJ(obj, MY_CLASS);
+    lv_file_exp_t * explorer = (lv_file_exp_t *)obj;
+    explorer->highlight_row = row;
+    lv_obj_invalidate(obj);
+    //lv_event_send(obj, LV_EVENT_REFRESH, NULL);
+}
+
+
+static void draw_event_cb(lv_event_t * e)
+{
+    lv_draw_task_t * draw_task = lv_event_get_draw_task(e);
+    lv_draw_dsc_base_t * base_dsc = lv_draw_task_get_draw_dsc(draw_task);
+
+    lv_obj_t * obj = lv_event_get_user_data(e);
+    lv_file_exp_t * explorer = (lv_file_exp_t *)obj;    /*If the cells are drawn...*/
+    if(base_dsc->part == LV_PART_ITEMS) {
+        uint32_t row = base_dsc->id1;
+        //uint32_t col = base_dsc->id2;
+
+#if 0
+        /*Make the texts in the first cell center aligned*/
+        if(row == 0) {
+            lv_draw_label_dsc_t * label_draw_dsc = lv_draw_task_get_label_dsc(draw_task);
+            if(label_draw_dsc) {
+                label_draw_dsc->align = LV_TEXT_ALIGN_CENTER;
+            }
+            lv_draw_fill_dsc_t * fill_draw_dsc = lv_draw_task_get_fill_dsc(draw_task);
+            if(fill_draw_dsc) {
+                fill_draw_dsc->color = lv_color_mix(lv_palette_main(LV_PALETTE_BLUE), fill_draw_dsc->color, LV_OPA_20);
+                fill_draw_dsc->opa = LV_OPA_COVER;
+            }
+        }
+        /*In the first column align the texts to the right*/
+        else if(col == 0) {
+            lv_draw_label_dsc_t * label_draw_dsc = lv_draw_task_get_label_dsc(draw_task);
+            if(label_draw_dsc) {
+                label_draw_dsc->align = LV_TEXT_ALIGN_RIGHT;
+            }
+        }
+#endif
+        /*Make every 2nd row grayish*/
+        if((row != 0 && row % 2) == 0) {
+            lv_draw_fill_dsc_t * fill_draw_dsc = lv_draw_task_get_fill_dsc(draw_task);
+            if(fill_draw_dsc) {
+                fill_draw_dsc->color = lv_color_mix(lv_palette_main(LV_PALETTE_GREY), fill_draw_dsc->color, LV_OPA_10);
+                fill_draw_dsc->opa = LV_OPA_COVER;
+            }
+        }
+        if(row == explorer->highlight_row) {
+            lv_draw_fill_dsc_t * fill_draw_dsc = lv_draw_task_get_fill_dsc(draw_task);
+            if(fill_draw_dsc) {
+                fill_draw_dsc->color = lv_color_mix(lv_palette_main(LV_PALETTE_BLUE), fill_draw_dsc->color, LV_OPA_40);
+                fill_draw_dsc->opa = LV_OPA_COVER;
+            }
+        }
+    }
+}
+
 #if LV_FILE_EXPLORER_QUICK_ACCESS
 static void quick_access_event_handler(lv_event_t * e)
 {
@@ -511,15 +575,17 @@ static void browser_file_event_handler(lv_event_t * e)
         lv_memzero(file_name, sizeof(file_name));
         lv_table_get_selected_cell(explorer->file_table, &row, &col);
         str_fn = lv_table_get_cell_value(explorer->file_table, row, 1);
-        //ESP_LOGI(TAG, "FILE '%s' row %ld col %ld", str_fn, (long)row, (long)col);
+        ESP_LOGI(TAG, "FILE '%s' row %ld col %ld curpath %s", str_fn, (long)row, (long)col, explorer->current_path);
 
         if((strcmp(str_fn, ".") == 0))  return;
 
         strcpy(file_name, explorer->current_path);
         if((strcmp(str_fn, "..") == 0)) {
+            /* Remove the last '/' characters */
+            for (int i = strlen(file_name) - 1; i > 0 && file_name[i] == '/'; i--) {
+                file_name[i] = '\0';
+            }
             if (strlen(file_name) > 1) {
-                strip_ext(file_name);
-                /*Remove the last '/' character*/
                 strip_ext(file_name);
             }
         }
@@ -528,15 +594,22 @@ static void browser_file_event_handler(lv_event_t * e)
         }
 
         DIR* dir = opendir(file_name);
+        ESP_LOGI(TAG, "opendir %s %p %s", file_name, dir, str_fn);
         if (dir) {
             closedir(dir);
             show_dir(obj, (char *)file_name);
-                explorer->sel_fn = "";
-                lv_obj_send_event(obj, LV_EVENT_VALUE_CHANGED, NULL);
+            explorer->sel_fn = "";
+            lv_obj_send_event(obj, LV_EVENT_VALUE_CHANGED, NULL);
         } else {
             if(strcmp(str_fn, "..") != 0) {
                 explorer->sel_fn = str_fn;
                 lv_obj_send_event(obj, LV_EVENT_VALUE_CHANGED, NULL);
+            } else {
+                if (explorer->highlight_row  > -1) {
+                    explorer->sel_fn = "";
+                    explorer->highlight_row = -1;
+                    lv_obj_send_event(obj, LV_EVENT_VALUE_CHANGED, NULL);
+                }
             }
         }
     }
@@ -555,6 +628,8 @@ static void show_dir(lv_obj_t * obj, const char * path)
 
     struct dirent **namelist;
     int n;
+
+    explorer->highlight_row = -1;
 
     n = scandir(path, &namelist, NULL, alphasort);
     if (n == -1) {
@@ -589,6 +664,7 @@ static void show_dir(lv_obj_t * obj, const char * path)
             lv_table_set_cell_value(explorer->file_table, index, 0, LV_SYMBOL_DIRECTORY);
             lv_table_set_cell_value(explorer->file_table, index, 1, fn);
         }
+#if 0
         else if((is_end_with(fn, ".png") == true)  || (is_end_with(fn, ".PNG") == true)  || \
            (is_end_with(fn, ".jpg") == true) || (is_end_with(fn, ".JPG") == true) || \
            (is_end_with(fn, ".bmp") == true) || (is_end_with(fn, ".BMP") == true) || \
@@ -601,8 +677,13 @@ static void show_dir(lv_obj_t * obj, const char * path)
             lv_table_set_cell_value(explorer->file_table, index, 0, LV_SYMBOL_AUDIO);
             lv_table_set_cell_value(explorer->file_table, index, 1, fn);
         }
+#endif
         else if((is_end_with(fn, ".d64") == true) || (is_end_with(fn, ".D64") == true)) {
-            lv_table_set_cell_value(explorer->file_table, index, 0, LV_SYMBOL_VIDEO);
+            lv_table_set_cell_value(explorer->file_table, index, 0, LV_SYMBOL_SAVE);
+            lv_table_set_cell_value(explorer->file_table, index, 1, fn);
+        }
+        else if((is_end_with(fn, ".prg") == true) || (is_end_with(fn, ".PRG") == true)) {
+            lv_table_set_cell_value(explorer->file_table, index, 0, LV_SYMBOL_CHARGE);
             lv_table_set_cell_value(explorer->file_table, index, 1, fn);
         }
         else {
@@ -629,15 +710,16 @@ static void show_dir(lv_obj_t * obj, const char * path)
     lv_label_set_text_fmt(explorer->path_label, LV_SYMBOL_EYE_OPEN" %s", path);
 
     size_t current_path_len = strlen(explorer->current_path);
-    if((*((explorer->current_path) + current_path_len) != '/') && (current_path_len < LV_FILE_EXPLORER_PATH_MAX_LEN)) {
-        *((explorer->current_path) + current_path_len) = '/';
+    if((*((explorer->current_path) + current_path_len - 1) != '/') && (current_path_len < LV_FILE_EXPLORER_PATH_MAX_LEN)) {
+        explorer->current_path[current_path_len] = '/';
+        explorer->current_path[current_path_len + 1] = 0;
     }
 }
 
 /*Remove the specified suffix*/
 static void strip_ext(char * dir)
 {
-    char * end = dir + strlen(dir);
+    char * end = dir + strlen(dir) - 1;
 
     while(end >= dir && *end != '/') {
         --end;
@@ -649,6 +731,25 @@ static void strip_ext(char * dir)
     else if(end == dir) {
         *(end + 1) = '\0';
     }
+}
+
+int lv_file_explorer_find_file_row(lv_obj_t * obj, const char *filename)
+{
+    LV_ASSERT_OBJ(obj, MY_CLASS);
+    lv_file_exp_t * explorer = (lv_file_exp_t *)obj;
+
+    lv_table_t * table = (lv_table_t *)explorer->file_table;
+    const char *ptr = strrchr(filename, '/');
+    if (ptr) filename = ptr + 1;
+
+    for (int row = 0; row < table->row_cnt; row++) {
+        const char * str_fn = NULL;
+        str_fn = lv_table_get_cell_value(explorer->file_table, row, 1);
+        if (!strcmp(str_fn, filename)) {
+            return row;
+        }
+    }
+    return -1;
 }
 
 static void exch_table_item(lv_obj_t * tb, int16_t i, int16_t j)

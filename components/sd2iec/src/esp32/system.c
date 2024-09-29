@@ -45,6 +45,8 @@ static const char *TAG = "system";
 
 int32_t arch_timeout;
 
+uint8_t hardaddress = 8;
+
 // Own "watchdog"
 volatile uint64_t last_system_sleep;
 

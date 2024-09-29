@@ -7,6 +7,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/types.h>
+#include <dirent.h>
 
 #include "cbmdirent.h"
 #include "display.h"
@@ -80,7 +82,7 @@ static void file_explorer_event_handler(lv_event_t *e) {
 
     char *ptr, *fn = file_info;
     /* Search for the file extension */
-    uint8_t typeflags = check_extension(sel_fn, &ptr);
+    uint16_t typeflags = check_extension(sel_fn, &ptr);
 
     strcpy(file_info, cur_path);
     // Strip /sdcard and /flash from the beginning
@@ -93,7 +95,7 @@ static void file_explorer_event_handler(lv_event_t *e) {
 
     // FIXME check if image/dir
 
-    ESP_LOGI(TAG, "CD %s", fn);
+    ESP_LOGI(TAG, "CD '%s'", fn);
     send_system_message(SYSTEM_CHDIR, fn);
   } else {
     LV_LOG_USER("%s%s", cur_path, sel_fn);
@@ -320,6 +322,24 @@ static void ui_files2(lv_obj_t *parent) {
 }
 #include "display.h"
 
+static void show_current_file(const uint8_t *buffer) {
+  // Not a directory
+  char *ptr = strrchr((char*)buffer, '/');
+  if (ptr) {
+    *ptr = 0;
+    ptr += 1;
+  } else {
+    ptr = (char*)buffer;
+  }
+  const char *current_path = lv_file_explorer_get_current_path(file_explorer);
+  if (!strcmp(current_path, (char*)buffer)) {
+    //lv_file_explorer_open_dir(file_explorer, (char *)buffer);
+  }
+  int row = lv_file_explorer_find_file_row(file_explorer, ptr);
+  lv_file_explorer_set_highlight_row(file_explorer, row);
+  ESP_LOGI(TAG, "HELLO DISPLAY_CURRENT_DIR  FILE %s cd %s %s row %d", ptr, buffer, current_path, row);
+}
+
 uint8_t esp_display_event(uint8_t cmd, uint8_t prefixbyte, uint8_t length,
                           const uint8_t *buffer) {
   ESP_LOGI(TAG, "display_message received prefix %d cmd %s(%d) len %d",
@@ -338,10 +358,12 @@ uint8_t esp_display_event(uint8_t cmd, uint8_t prefixbyte, uint8_t length,
 
   case DISPLAY_FILENAME_READ:
     add_status_message("READ %d:%s", prefixbyte, buffer);
+    show_current_file(buffer);
     break;
 
   case DISPLAY_FILENAME_WRITE:
     add_status_message("WRITE %d:%s", prefixbyte, buffer);
+    show_current_file(buffer);
     break;
 
   case DISPLAY_DOSCOMMAND:
@@ -354,6 +376,15 @@ uint8_t esp_display_event(uint8_t cmd, uint8_t prefixbyte, uint8_t length,
 
   case DISPLAY_CURRENT_DIR:
     add_status_message("current part %d dir %s", prefixbyte, buffer);
+    DIR *dp = opendir ((char*)buffer);
+    if (dp) {
+      // Directory
+      closedir(dp);
+      lv_file_explorer_open_dir(file_explorer, (char *)buffer);
+    } else {
+      // Not a directory
+      show_current_file(buffer);
+    }
     break;
 
   case DISPLAY_CURRENT_PART:

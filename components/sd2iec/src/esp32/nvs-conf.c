@@ -124,8 +124,10 @@ void read_configuration(void) {
   globalflags &= (uint8_t)~(POSTMATCH | EXTENSION_HIDING);
   globalflags |= tmp;
 
-  if (storedconfig.hardaddress == device_hw_address())
-    device_address = storedconfig.hardaddress;
+  hardaddress = storedconfig.hardaddress;
+  device_address = storedconfig.hardaddress;
+  //if (storedconfig.hardaddress == device_hw_address())
+  //  device_address = storedconfig.hardaddress;
 
   file_extension_mode = storedconfig.fileexts;
 

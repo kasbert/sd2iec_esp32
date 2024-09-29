@@ -100,6 +100,7 @@ static uint8_t   bam_refcount;
 /* ------------------------------------------------------------------------- */
 
 static uint8_t d64_opendir(dh_t *dh, path_t *path);
+static uint8_t d64_image_unmount(uint8_t part);
 
 static void format_d41_image(uint8_t part, buffer_t *buf, uint8_t *name, uint8_t *idbuf);
 static void format_d71_image(uint8_t part, buffer_t *buf, uint8_t *name, uint8_t *idbuf);
@@ -1247,7 +1248,12 @@ static uint8_t d64_write_cleanup(buffer_t *buf) {
 
 uint8_t d64_mount(path_t *path, uint8_t *name, uint32_t fsize) {
   uint8_t imagetype;
-  uint8_t part = path->part;
+  //uint8_t part = path->part;
+  uint8_t part = max_part;
+  memset(&(partition[part]), 0, sizeof(partition_t));
+  partition[part].fop = &d64ops;
+  partition[part].parent_part = path->part;
+  partition[part].base_path = "D64"; // FIXME ?
 
   switch (fsize) {
   case 174848:
@@ -1310,13 +1316,16 @@ uint8_t d64_mount(path_t *path, uint8_t *name, uint32_t fsize) {
   partition[part].imagetype = imagetype;
   path->dir.dxx.track  = get_param(part, DIR_TRACK);
   path->dir.dxx.sector = get_param(part, DIR_START_SECTOR);
-
+  partition[part].current_dir.dxx.track  = get_param(part, DIR_TRACK);
+  partition[part].current_dir.dxx.sector = get_param(part, DIR_START_SECTOR);
   bam_refcount++;
 
   if (imagetype & D64_HAS_ERRORINFO)
     /* Invalidate error cache */
     errorcache.part = 255;
 
+  max_part++;
+  current_part = part;
   return 0;
 }
 
@@ -1680,7 +1689,7 @@ void d64_raw_directory(path_t *path, buffer_t *buf) {
 static uint8_t image_chdir(path_t *path, cbmdirent_t *dent) {
   if (dent->name[0] == '_' && dent->name[1] == 0) {
     /* Unmount request */
-    return image_unmount(path->part);
+    return d64_image_unmount(path->part);
   }
   return 1;
 }
@@ -1716,7 +1725,7 @@ static uint8_t d64_chdir(path_t *path, cbmdirent_t *dirname) {
 
     if (parent[0] == 0)
       /* Already at the root directory */
-      return image_unmount(path->part);
+      return d64_image_unmount(path->part);
 
     path->dir.dxx.track  = parent[0];
     path->dir.dxx.sector = parent[1];
@@ -1875,6 +1884,12 @@ void d64_invalidate(void) {
  * refcounting for the BAM buffers.
  */
 void d64_unmount(uint8_t part) {
+  d64_image_unmount(part);
+}
+
+static uint8_t d64_image_unmount(uint8_t part) {
+  free_multiple_buffers(FMB_USER_CLEAN);
+
   /* invalidate BAM buffers that point to the current partition */
   if (bam_buffer) {
     bam_buffer->cleanup(bam_buffer);
@@ -1895,6 +1910,11 @@ void d64_unmount(uint8_t part) {
     bam_buffer  = NULL;
     bam_buffer2 = NULL;
   }
+
+  max_part--; // TODO check
+  current_part = partition[part].parent_part;
+  // Call parent unmount. close fd
+  return image_unmount(partition[part].parent_part);
 }
 
 
@@ -2125,5 +2145,7 @@ const PROGMEM fileops_t d64ops = {
   d64_readdir,
   d64_mkdir,
   d64_chdir,
-  d64_rename
+  d64_rename,
+  d64_image_unmount,
+  0, 0
 };

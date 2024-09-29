@@ -41,6 +41,7 @@
 #define TYPE_LENGTH 3
 #define TYPE_MASK 7
 #define EXT_TYPE_MASK 15
+#define IMG_TYPE_MASK 0xf00
 
 /* Standard file types */
 #define TYPE_DEL 0
@@ -54,10 +55,10 @@
 /* Internal file types used for the partition directory */
 #define TYPE_NAT 8
 
-#define TYPE_M2I 11
-#define TYPE_D64 12
-#define TYPE_X00 13 /* temporary */
-#define TYPE_UNK 14 /* temporary */
+//#define TYPE_M2I 11
+#define TYPE_UNK 12 /* temporary */
+//#define TYPE_X00 13 /* temporary */
+//#define TYPE_D64 14 /* */
 
 /* Internal file type used to force files without header on FAT (for M2I) */
 #define TYPE_RAW 15
@@ -66,6 +67,13 @@
 #define FLAG_HIDDEN (1<<5)
 #define FLAG_RO     (1<<6)
 #define FLAG_SPLAT  (1<<7)
+//#define FLAG_IMAGE  (1<<8)
+//typedef enum { IMG_UNKNOWN, IMG_IS_M2I, IMG_IS_DISK } imgtype_t;
+#define TYPE_IMG_M2I      0x100
+#define TYPE_IMG_DISK     0x200
+#define TYPE_IMG_X00      0x300
+
+uint16_t check_extension(const char *name, char **ext);
 
 /* forward declaration to avoid an include loop */
 struct buffer_s;
@@ -181,7 +189,7 @@ typedef enum {
  */
 typedef struct {
   uint8_t   name[CBM_NAME_LENGTH+1];
-  uint8_t   typeflags;
+  uint16_t  typeflags;
   uint16_t  blocksize;
   uint8_t   remainder;
   date_t    date;
@@ -317,10 +325,11 @@ typedef struct partition_s {
 #endif
   uint8_t                imagetype;
   struct param_s         d64data;
-  const struct fileops_s *parent_fop; // fat/vfs for d64
+  uint8_t                parent_part; // fat/vfs for d64
 #ifdef CONFIG_HAVE_VFS
   const char             *base_path;
   int                    imagefd;
+  uint32_t               imagesize;
 #endif
   uint8_t                flag;
 } partition_t;

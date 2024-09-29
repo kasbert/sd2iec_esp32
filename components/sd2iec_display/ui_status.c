@@ -26,7 +26,7 @@
 static lv_style_t style_part_active;
 static lv_style_t style_part_inactive;
 
-static lv_obj_t *status_label1;
+static lv_obj_t *status_label1 = 0;
 static lv_obj_t *status_label2;
 static lv_obj_t *sdcard_label;
 static lv_obj_t *flash_label;
@@ -52,7 +52,11 @@ static void test_system_event_handler(lv_event_t *e) {
 }
 
 void ui_status(lv_obj_t *container) {
-
+  add_status_message(" ");
+  add_status_message(" ");
+  add_status_message(" ");
+  add_status_message(" ");
+  add_status_message(" ");
   /*
   lv_style_init(&style_lb);
   lv_style_set_bg_color(&style_lb, lv_color_black());
@@ -93,6 +97,7 @@ void ui_status(lv_obj_t *container) {
   // lv_style_set_pad_row(&container, 0);
 
   {
+    // Drive pic + drive number
     lv_obj_t *cont0 = lv_obj_create(container);
     lv_obj_remove_style_all(cont0);
     // lv_obj_set_size(cont, 300, 220);
@@ -114,6 +119,7 @@ void ui_status(lv_obj_t *container) {
   }
 
   {
+    // Scrolling status texts with chargen font
     lv_obj_t *cont3 = lv_obj_create(container);
     lv_obj_remove_style_all(cont3);
     // lv_obj_set_size(cont, 300, 220);
@@ -125,18 +131,6 @@ void ui_status(lv_obj_t *container) {
     lv_obj_set_style_pad_row(cont3, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_column(cont3, 0, LV_PART_MAIN);
 
-    status_label1 = lv_label_create(cont3);
-    lv_obj_remove_style_all(status_label1);
-    lv_obj_set_width(status_label1, lv_pct(100));
-    lv_obj_set_style_text_font(status_label1, &chargen_font_sparse,
-                               LV_PART_MAIN);
-    /*
-    lv_obj_add_style(status_label1, &style_condensed, LV_PART_MAIN);
-    lv_obj_set_style_margin_bottom(status_label1, 0, LV_PART_MAIN);
-    lv_obj_set_style_margin_all(status_label1, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(status_label1, 0, LV_PART_MAIN);
-    */
-
     status_label2 = lv_label_create(cont3);
     lv_obj_remove_style_all(status_label2);
     lv_obj_set_width(status_label2, lv_pct(100));
@@ -144,14 +138,12 @@ void ui_status(lv_obj_t *container) {
                                LV_PART_MAIN);
     lv_obj_add_style(status_label2, &style_text_muted, LV_PART_MAIN);
     lv_obj_add_style(status_label2, &style_condensed, LV_PART_MAIN);
-    /*
-    lv_obj_set_style_margin_top(status_label2, 0, LV_PART_MAIN);
-  // lv_obj_set_y(status_label, 10);
-    lv_obj_set_style_margin_all(status_label2, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(status_label2, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_row(status_label2, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_column(status_label2, 0, LV_PART_MAIN);
-    */
+
+    status_label1 = lv_label_create(cont3);
+    lv_obj_remove_style_all(status_label1);
+    lv_obj_set_width(status_label1, lv_pct(100));
+    lv_obj_set_style_text_font(status_label1, &chargen_font_sparse,
+                               LV_PART_MAIN);
   }
   /*
       lv_obj_t *test2_btn = lv_btn_create(container);
@@ -166,6 +158,7 @@ void ui_status(lv_obj_t *container) {
   */
 
   {
+    // SDCARD and flash boxes
     lv_obj_t *cont1 = lv_obj_create(container);
     lv_obj_remove_style_all(cont1);
     // lv_obj_set_size(cont, 300, 220);
@@ -223,11 +216,11 @@ void ui_status_update_device_address() {
 }
 
 #define MAX_STATUS_MESSAGES 5
+__attribute__((format(printf, 1, 2))) void add_status_message(const char *fmt,
+                                                              ...) {
 static char *status_texts[MAX_STATUS_MESSAGES] = {0};
 static char *status_all = 0;
 
-__attribute__((format(printf, 1, 2))) void add_status_message(const char *fmt,
-                                                              ...) {
   char buffer[80];
   va_list args;
   va_start(args, fmt);
@@ -252,24 +245,31 @@ __attribute__((format(printf, 1, 2))) void add_status_message(const char *fmt,
     free(status_all);
   status_all = malloc(text_len);
   status_all[0] = 0;
-  for (int i = 1; i < MAX_STATUS_MESSAGES; i++) {
+  for (int i = MAX_STATUS_MESSAGES - 1; i > 1; i--) {
     if (status_texts[i]) {
       strcat(status_all, status_texts[i]);
     }
     strcat(status_all, "\n");
   }
-  lv_label_set_text_static(status_label1, status_texts[0]);
-  lv_label_set_text_static(status_label2, status_all);
+  if (status_label1) {
+    lv_label_set_text_static(status_label1, status_texts[0]);
+    lv_label_set_text_static(status_label2, status_all);
+  }
 }
 
 static void spiflash_info(lv_obj_t *label, const char *mount_point) {
   uint64_t out_total_bytes = esp32fs_get_bytes_used(mount_point);
   uint64_t out_free_bytes = esp32fs_get_bytes_free(mount_point);
-  ESP_LOGI(TAG, "Total bytes: %lld, free bytes: %lld",
+  ESP_LOGI(TAG, "%s Total bytes: %lld, free bytes: %lld", mount_point,
            (long long)out_total_bytes, (long long)out_free_bytes);
   lv_label_set_text_fmt(label,
-                        "Internal Flash\nTotal bytes: %lld\nFree bytes: %lld",
-                        (long long)out_total_bytes, (long long)out_free_bytes);
+                        "Internal Flash\nTotal bytes: %lld\n"
+                        "Free: %d%%",
+                        //"Free bytes: %lld",
+                        (long long)out_total_bytes, 
+                        (int)(out_free_bytes * 100 / out_total_bytes)
+                        //(long long)out_free_bytes
+                        );
 }
 
 void sdmmc_card_info(const char *mount_point) {
@@ -279,14 +279,18 @@ void sdmmc_card_info(const char *mount_point) {
   }
   uint64_t out_total_bytes = esp32fs_get_bytes_used(mount_point);
   uint64_t out_free_bytes = esp32fs_get_bytes_free(mount_point);
-  ESP_LOGI(TAG, "Total bytes: %lld, free bytes: %lld",
+  ESP_LOGI(TAG, "%s Total bytes: %lld, free bytes: %lld", mount_point,
            (long long)out_total_bytes, (long long)out_free_bytes);
   lv_label_set_text_fmt(
       sdcard_label,
-      "Name: %s\nType: %s\nSize: %lluMB\nTotal bytes: %lld\nFree bytes: %lld",
+      "Name: %s\nType: %s\nSize: %lluMB\n"
+      "Free: %d%%",
+      //"Total bytes: %lld\nFree bytes: %lld",
       esp32fs_sdcard_get_name(), esp32fs_sdcard_get_type(),
-      (long long)esp32fs_sdcard_get_size(), (long long)out_total_bytes,
-      (long long)out_free_bytes);
+      (long long)esp32fs_sdcard_get_size(),
+      (int)(out_free_bytes*100/out_total_bytes)
+      //(long long)out_total_bytes,(long long)out_free_bytes
+      );
 }
 
 void ui_status_set_partition(int prefixbyte) {

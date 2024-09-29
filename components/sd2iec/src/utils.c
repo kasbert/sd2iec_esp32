@@ -26,6 +26,9 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "utils.h"
+#include "cbmdirent.h"
+#include "ustring.h"
+#include <ctype.h>
 
 /* Append a decimal number to a string */
 uint8_t *appendnumber(uint8_t *msg, uint8_t value) {
@@ -126,4 +129,57 @@ void pet2asc(uint8_t *buf) {
     *buf = ch;
     buf++;
   }
+}
+
+/**
+ * check_extension - check for known file-type-based name extensions
+ * @name: pointer to the file name
+ * @ext : pointer to pointer to the file extension
+ *
+ * This function checks if the given file name has an extension that
+ * indicates a specific file type like PRG/SEQ/P00/S00/... The ext
+ * pointer will be set to the first character of the extension if
+ * any is present or NULL if not. Returns EXT_IS_X00 for x00,
+ * EXT_IS_TYPE for PRG/SEQ/... or EXT_UNKNOWN for an unknown file extension.
+ */
+uint16_t check_extension(const char *name, char **ext) {
+  uint8_t f,s,t;
+
+  /* Search for the file extension */
+  *ext = strrchr(name, '.');
+  if (*ext == NULL) {
+    return TYPE_UNK;
+  }
+  if (ustrlen(*ext) != 4)
+    return TYPE_UNK;
+  ++(*ext);
+  f = toupper(*(*ext));
+  s = toupper(*(*ext+1));
+  t = toupper(*(*ext+2));
+  if ((f == 'P' || f == 'S' ||
+        f == 'U' || f == 'R') &&
+      isdigit(s) && isdigit(t))
+    return TYPE_IMG_X00;
+  if (f=='P' && s == 'R' && t == 'G')
+    return TYPE_PRG;
+  if (f=='S' && s == 'E' && t == 'Q')
+    return TYPE_SEQ;
+  if (f=='R' && s == 'E' && t == 'L')
+    return TYPE_REL;
+  if (f=='U' && s == 'S' && t == 'R')
+    return TYPE_USR;
+
+#ifdef CONFIG_M2I
+  if (f == 'M' && s == '2' && t == 'I')
+    return TYPE_IMG_M2I;
+#endif
+  if (f == 'D') {
+    if ((s == '6' && t == '4') ||
+        (s == 'N' && t == 'P') ||
+        ((s == '4' || s == '7' || s == '8') &&
+         (t == '1'))) {
+      return TYPE_IMG_DISK;
+    }
+  }
+  return TYPE_UNK;
 }

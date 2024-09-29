@@ -31,6 +31,7 @@
 extern uint8_t display_found;
 
 #include "i2c.h"
+#include "cbmdirent.h"
 
 void display_send_prefixed(uint8_t cmd, uint8_t prefixbyte, uint8_t len, const uint8_t *buffer);
 uint8_t display_init(uint8_t len, uint8_t *message);
@@ -38,13 +39,14 @@ void display_service(void);
 void display_send_cmd(uint8_t cmd, uint8_t len, const void *buf);
 void display_send_cmd_byte(uint8_t cmd, uint8_t val);
 
-void display_filename_write(uint8_t part, uint8_t len, const unsigned char* buf);
+void display_filename_read(uint8_t part, cbmdirent_t *dent);
+void display_filename_write(uint8_t part, cbmdirent_t *dent);
 void display_menu_show(uint8_t start);
 void display_address(uint8_t dev);
 void display_current_part(uint8_t part);
 void display_menu_add(const unsigned char* string);
 void display_menu_reset(void);
-void display_current_directory(uint8_t part, const unsigned char* name);
+void display_current_directory(uint8_t part, const char* name);
 
 #else // CONFIG_REMOTE_DISPLAY
 
@@ -55,6 +57,7 @@ void display_current_directory(uint8_t part, const unsigned char* name);
 # define display_send_cmd(cmd,len,buf)  do {} while (0)
 # define display_send_cmd_byte(cmd,v)   do {} while (0)
 
+# define display_filename_read(a,b,c)  do {} while (0)
 # define display_filename_write(a,b,c)  do {} while (0)
 # define display_menu_show(a)           do {} while (0)
 # define display_address(a)             do {} while (0)
@@ -84,7 +87,6 @@ enum display_commands {
   DISPLAY_MENU_GETENTRY,     // returns the text of the selected menu entry
 };
 
-#define display_filename_read(part,len,buf)     display_send_prefixed(DISPLAY_FILENAME_READ,part,len,buf)
 #define display_doscommand(len,buf)             display_send_cmd(DISPLAY_DOSCOMMAND,len,buf)
 #define display_errorchannel(len,buf)           display_send_cmd(DISPLAY_ERRORCHANNEL,len,buf)
 

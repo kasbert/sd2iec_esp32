@@ -171,6 +171,20 @@ static void globalflags_event_handler(lv_event_t *e) {
   }
 }
 
+static void image_as_dir_event_handler(lv_event_t *e) {
+  lv_event_code_t code = lv_event_get_code(e);
+  lv_obj_t *obj = lv_event_get_target(e);
+  uint32_t flag = (uint32_t)lv_event_get_user_data(e);
+  ESP_LOGI(TAG, "%d State: %s %ld\n", code,
+           lv_obj_has_state(obj, LV_STATE_CHECKED) ? "On" : "Off", (long)flag);
+  if (lv_obj_has_state(obj, LV_STATE_CHECKED)) {
+    image_as_dir = IMAGE_DIR_DIR; // FIXME BOTH
+  } else {
+    image_as_dir = IMAGE_DIR_NORMAL;
+  }
+  send_system_message(SYSTEM_STORE, 0);
+}
+
 static void slider_event_cb(lv_event_t *e) {
   lv_obj_t *slider = lv_event_get_target(e);
   backlight_percent = lv_slider_get_value(slider);
@@ -335,6 +349,25 @@ void ui_config(lv_obj_t *container) {
       lv_obj_add_state(sw, LV_STATE_CHECKED);
     lv_obj_add_event_cb(sw, globalflags_event_handler, LV_EVENT_VALUE_CHANGED,
                         (void *)flags[i]);
+  }
+  {
+    lv_obj_t *label, *sw;
+    lv_obj_t *cont1 = lv_obj_create(container);
+    lv_obj_remove_style_all(cont1);
+    lv_obj_add_style(cont1, &style_config_item, 0);
+    lv_obj_set_flex_flow(cont1, LV_FLEX_FLOW_ROW);
+    lv_obj_remove_flag(cont1, LV_OBJ_FLAG_SCROLLABLE);
+
+    label = lv_label_create(cont1);
+    lv_label_set_text(label, "IMAGE_AS_DIR");
+    lv_obj_set_width(label, 300);
+    lv_obj_set_style_margin_top(
+        label, (32 - lv_font_montserrat_20.line_height) / 2, 0);
+
+    sw = lv_switch_create(cont1);
+    if (image_as_dir != IMAGE_DIR_NORMAL)
+      lv_obj_add_state(sw, LV_STATE_CHECKED);
+    lv_obj_add_event_cb(sw, image_as_dir_event_handler, LV_EVENT_VALUE_CHANGED,0);
   }
 
 #if 0

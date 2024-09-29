@@ -67,6 +67,7 @@ typedef struct lv_file_exp_t {
 #endif
     const char * sel_fn;
     char   current_path[LV_FILE_EXPLORER_PATH_MAX_LEN];
+    int highlight_row;
     lv_file_explorer_sort_t sort;
 } lv_file_exp_t;
 
@@ -192,5 +193,9 @@ void lv_file_explorer_open_dir(lv_obj_t * obj, const char * dir);
 #ifdef __cplusplus
 } /*extern "C"*/
 #endif
+
+void lv_file_explorer_set_highlight_row(lv_obj_t * obj, int row);
+int lv_file_explorer_find_file_row(lv_obj_t * obj, const char *filename);
+
 
 //#endif /*LV_FILE_EXPLORER_H*/

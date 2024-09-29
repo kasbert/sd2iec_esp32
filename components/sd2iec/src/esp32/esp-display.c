@@ -45,14 +45,14 @@
 */
 #include "espfs.h"
 #include "utils.h"
+#include "parser.h"
 /*
 #include "cbmdirent.h"
 
-#include "parser.h"
 #include "wrapops.h"
 */
 
-static const char *TAG = "display";
+static const char *TAG = "esp-display";
 
 
 /*
@@ -89,9 +89,11 @@ void display_send_prefixed(uint8_t cmd, uint8_t prefixbyte, uint8_t len, const u
   msg.len = len;
   memcpy(msg.buffer, buffer, len);
   msg.buffer[len] = 0;
+  /*
   if (cmd == DISPLAY_FILENAME_READ || cmd == DISPLAY_FILENAME_WRITE) {
     pet2asc(msg.buffer);
   }
+  */
   if (xQueueSendToBack( to_display_queue, ( void * ) &msg, 0) != pdPASS){
       // Failed to post the message, even after 10 ticks.
       ESP_LOGE(TAG, "Cannot send to to_display_queue");
@@ -104,14 +106,29 @@ void display_send_cmd(uint8_t cmd, uint8_t len, const void *buf) {
   display_send_prefixed(cmd, 0, len, buf);
 }
 
-/* A macro for unknown reason
-void display_filename_read(uint8_t part, uint8_t len, const unsigned char *buf) {
-  display_send_prefixed(DISPLAY_FILENAME_READ, part, len, buf);
-}
-*/
 
-void display_filename_write(uint8_t part, uint8_t len, const unsigned char *buf) {
-  display_send_prefixed(DISPLAY_FILENAME_WRITE, part, len, buf);
+static void vfs_path(char *buffer, uint8_t part, char *name) {
+  strcpy (buffer, partition[part].base_path);
+  strcat (buffer, "/");
+  if (partition[part].current_dir.pathname[0]) {
+    strcat (buffer, partition[part].current_dir.pathname);
+    strcat (buffer, "/");
+  }
+  strcat (buffer, name);
+}
+
+void display_filename_read(uint8_t part, cbmdirent_t *dent) {
+  char buffer[512]; // FIXME
+  vfs_path(buffer, part, dent->pvt.vfs.realname);
+  display_send_prefixed(DISPLAY_FILENAME_READ, part, strlen(buffer), (unsigned char *)buffer);
+  //display_send_prefixed(DISPLAY_FILENAME_READ, part, len, buf);
+}
+
+void display_filename_write(uint8_t part, cbmdirent_t *dent) {
+  char buffer[512]; // FIXME
+  vfs_path(buffer, part, dent->pvt.vfs.realname);
+  display_send_prefixed(DISPLAY_FILENAME_WRITE, part, strlen(buffer), (unsigned char *)buffer);
+  //display_send_prefixed(DISPLAY_FILENAME_WRITE, part, len, buf);
 }
 
 void display_address(uint8_t dev) {
@@ -126,8 +143,15 @@ void display_menu_reset(void) {
   display_send_prefixed(DISPLAY_MENU_RESET, 0, 0, 0);
 }
 
-void display_current_directory(uint8_t part, const unsigned char *name) {
-  display_send_prefixed(DISPLAY_CURRENT_DIR, part, strlen((char *)name), name);
+void display_current_directory(uint8_t part, const char *name) {
+  char buffer[512]; // FIXME
+  strcpy (buffer, partition[part].base_path);
+  //strcat (buffer, "/");
+  strcat (buffer, name);
+  //printf("HELLO display_current_directory %s %s \n", name, buffer);
+
+  display_send_prefixed(DISPLAY_CURRENT_DIR, part, strlen(buffer), (unsigned char *)buffer);
+  //display_send_prefixed(DISPLAY_CURRENT_DIR, part, strlen((char *)name), (unsigned char *)name);
 }
 
 
@@ -390,13 +414,27 @@ void system_display_service(system_message *msg) {
     path_t path;
     cbmdirent_t dent;
 
+    if (current_part >= 2) {
+      image_unmount(current_part);
+    }
     /* Read directory name into displaybuffer */
     path.part = current_part;
     path.dir = partition[current_part].current_dir;
 
     if (msg->data[0] == '/') {
       // absolute dir, real name
-      strcpy(path.dir.pathname, msg->data);
+      char *fn = msg->data;
+      memset(&dent, 0, sizeof(dent));
+      ESP_LOGI(TAG, "CD '%s' part %d", fn, path.part);
+      strcpy((char*)dent.pvt.vfs.realname, fn);
+      char *ext;
+      dent.typeflags = check_extension(fn, &ext);
+      if (dent.typeflags == TYPE_UNK) {
+        // Cannot determine dir from filename
+        dent.typeflags = TYPE_DIR;
+      }
+      strcpy(path.dir.pathname, "/");
+      //strcpy(path.dir.pathname, fn);
       dent.name[0] = '.';
       dent.name[1] = 0;
     } else if (msg->data[0] == '.' && msg->data[1] == '.' && msg->data[2] == 0) {
@@ -409,6 +447,9 @@ void system_display_service(system_message *msg) {
     }
 
     w_chdir(&path, &dent);
+    if (dent.typeflags == TYPE_IMG_DISK) {
+      strcpy (&path.dir.pathname, (char*)dent.pvt.vfs.realname);
+    }
     update_current_dir(&path);
     break;
 

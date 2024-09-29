@@ -108,8 +108,9 @@ typedef struct fileops_s {
 #define w_mkdir(path,dir) ((pgmcall(partition[(path)->part].fop->mkdir))(path,dir))
 #define w_chdir(path,dent) ((pgmcall(partition[(path)->part].fop->chdir))(path,dent))
 #define w_rename(path,old,new) ((pgmcall(partition[(path)->part].fop->rename))(path,old,new))
-#define image_unmount(part)  ((pgmcall(partition[part].parent_fop->image_unmount))(part))
-#define image_read(part,offset,buffer,bytes) ((pgmcall(partition[part].parent_fop->image_read))(part,offset,buffer,bytes))
-#define image_write(part,offset,buffer,bytes,flush) ((pgmcall(partition[part].parent_fop->image_write))(part,offset,buffer,bytes,flush))
+#define image_unmount(part)  ((pgmcall(partition[part].fop->image_unmount))(part))
+// Image read and write are called from parent file system
+#define image_read(part,offset,buffer,bytes) ((pgmcall(partition[partition[part].parent_part].fop->image_read))((partition[part].parent_part),(offset),(buffer),(bytes)))
+#define image_write(part,offset,buffer,bytes,flush) ((pgmcall(partition[partition[part].parent_part].fop->image_write))((partition[part].parent_part),(offset),(buffer),(bytes),flush))
 
 #endif

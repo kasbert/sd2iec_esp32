@@ -75,6 +75,7 @@ void display_send_prefixed(uint8_t cmd, uint8_t prefixbyte, uint8_t len, const u
  *   GLOBAL FUNCTIONS
  **********************/
 uint8_t device_address = 8;
+uint8_t hardaddress = 8;
 
 int main(int argc, char **argv)
 {
@@ -158,6 +159,7 @@ void send_system_message(uint8_t cmd, char* data) {
     break;
 
   case SYSTEM_STORE:
+    // Write config to eeprom
     break;
 
   case SYSTEM_MOUNT:
