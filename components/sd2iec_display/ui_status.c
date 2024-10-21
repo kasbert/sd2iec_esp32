@@ -47,10 +47,6 @@ static void flash_event_cb(lv_event_t *event) {
   send_system_message(SYSTEM_DOSCMD, "CP2");
 }
 
-static void test_system_event_handler(lv_event_t *e) {
-  send_system_message(42, 0);
-}
-
 void ui_status(lv_obj_t *container) {
   add_status_message(" ");
   add_status_message(" ");
@@ -109,8 +105,6 @@ void ui_status(lv_obj_t *container) {
 
     lv_obj_t *icon = lv_image_create(cont0);
     lv_image_set_src(icon, &c1541);
-    lv_obj_add_event_cb(icon, test_system_event_handler, LV_EVENT_CLICKED, 0);
-    lv_obj_add_flag(icon, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_remove_flag(icon, LV_OBJ_FLAG_SCROLLABLE);
 
     drive_number_label1 = lv_label_create(cont0);
@@ -245,7 +239,7 @@ static char *status_all = 0;
     free(status_all);
   status_all = malloc(text_len);
   status_all[0] = 0;
-  for (int i = MAX_STATUS_MESSAGES - 1; i > 1; i--) {
+  for (int i = MAX_STATUS_MESSAGES - 1; i > 0; i--) {
     if (status_texts[i]) {
       strcat(status_all, status_texts[i]);
     }

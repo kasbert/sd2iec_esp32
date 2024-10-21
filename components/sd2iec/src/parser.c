@@ -52,7 +52,8 @@ void update_current_dir(path_t *path){
   partition[path->part].current_dir = path->dir;
   dir_changed = 1;
 
-  if (display_found && path->part == current_part) {
+  if (display_found /*&& path->part == current_part*/) {
+    /*
     uint8_t dirname[CBM_NAME_LENGTH+1];
     uint8_t *ptr = dirname + CBM_NAME_LENGTH;
 
@@ -60,7 +61,8 @@ void update_current_dir(path_t *path){
     *ptr-- = 0;
 
     while (*ptr == ' ') *ptr-- = 0;
-    display_current_directory(path->part, dirname);
+    */
+    display_current_directory(path->part, partition[path->part].current_dir.pathname);
   }
 }
 
@@ -354,7 +356,7 @@ uint8_t parse_path(uint8_t *in, path_t *path, uint8_t **name, uint8_t for_cd) {
           if ((dent.typeflags & TYPE_MASK) != TYPE_DIR) {
             /* Not a directory */
             /* FIXME: Try to mount as image here so they can be accessed like a directory */
-            if (for_cd && saved == 0 && ((dent.typeflags & EXT_TYPE_MASK) == TYPE_D64)) {
+            if (for_cd && saved == 0 && (dent.typeflags & IMG_TYPE_MASK)) {
               /* no further path components, last one is an image file */
               *name = in;
               return 0;

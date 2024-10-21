@@ -26,7 +26,14 @@ add_subdirectory(../managed_components/lvgl__lvgl lvgl)
 target_include_directories(lvgl PUBLIC ${PROJECT_SOURCE_DIR} ${SDL2_INCLUDE_DIRS} lvgl/src ../components/sd2iec_display ../components/sd2iec/src ../components/sd2iec/src/esp32)
 
 add_executable(
-    main main/src/main.c main/src/mouse_cursor_icon.c ../components/sd2iec_display/ui_main.c ../components/sd2iec_display/ui_config.c ../components/sd2iec_display/ui_status.c ../components/sd2iec_display/lv_file_explorer.c ../components/sd2iec/src/utils.c)
+    main main/src/main.c main/src/mouse_cursor_icon.c 
+    ../components/sd2iec_display/ui_main.c 
+    ../components/sd2iec_display/ui_files.c 
+    ../components/sd2iec_display/ui_config.c 
+    ../components/sd2iec_display/ui_status.c 
+    ../components/sd2iec_display/ui_about.c 
+    ../components/sd2iec_display/lv_file_explorer.c 
+    ../components/sd2iec/src/utils.c)
 
 target_compile_definitions(main PRIVATE LV_CONF_INCLUDE_SIMPLE)
 target_link_libraries(main lvgl lvgl::examples lvgl::demos lvgl::thorvg ${SDL2_LIBRARIES} m pthread)

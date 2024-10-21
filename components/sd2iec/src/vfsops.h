@@ -32,7 +32,7 @@
 
 /* API */
 void     vfsops_init(uint8_t preserve_dir, const char *basepath);
-void     parse_error(int res, uint8_t readflag);
+void     parse_error(const char *func, int res, uint8_t readflag);
 uint8_t  vfs_delete(path_t *path, cbmdirent_t *dent);
 uint8_t  vfs_chdir(path_t *path, cbmdirent_t *dent);
 void     vfs_mkdir(path_t *path, uint8_t *dirname);

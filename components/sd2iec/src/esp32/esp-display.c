@@ -448,7 +448,7 @@ void system_display_service(system_message *msg) {
 
     w_chdir(&path, &dent);
     if (dent.typeflags == TYPE_IMG_DISK) {
-      strcpy (&path.dir.pathname, (char*)dent.pvt.vfs.realname);
+      strcpy ((char*)&path.dir.pathname, (char*)dent.pvt.vfs.realname);
     }
     update_current_dir(&path);
     break;

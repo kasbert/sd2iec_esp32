@@ -85,7 +85,8 @@ static const PROGMEM char p00marker[] = "C64File";
  * res. readflag specifies if a READ ERROR or WRITE ERROR should be used
  * if the error is FR_RW_ERROR.
  */
-void parse_error(int res, uint8_t readflag) {
+void parse_error(const char *func, int res, uint8_t readflag) {
+  ESP_LOGI(TAG, "Parse error %s %d, %d\n", func, res, readflag);
   switch (res) {
   case 0:
     set_error(ERROR_OK);
@@ -142,60 +143,6 @@ void parse_error(int res, uint8_t readflag) {
 }
 
 /**
- * check_extension - check for known file-type-based name extensions
- * @name: pointer to the file name
- * @ext : pointer to pointer to the file extension
- *
- * This function checks if the given file name has an extension that
- * indicates a specific file type like PRG/SEQ/P00/S00/... The ext
- * pointer will be set to the first character of the extension if
- * any is present or NULL if not. Returns EXT_IS_X00 for x00,
- * EXT_IS_TYPE for PRG/SEQ/... or EXT_UNKNOWN for an unknown file extension.
- */
-static uint8_t check_extension(char *name, char **ext) {
-  uint8_t f,s,t;
-
-  /* Search for the file extension */
-  *ext = strrchr(name, '.');
-  if (*ext == NULL) {
-    return TYPE_UNK;
-  }
-  if (ustrlen(*ext) != 4)
-    return TYPE_UNK;
-  ++(*ext);
-  f = toupper(*(*ext));
-  s = toupper(*(*ext+1));
-  t = toupper(*(*ext+2));
-  if ((f == 'P' || f == 'S' ||
-        f == 'U' || f == 'R') &&
-      isdigit(s) && isdigit(t))
-    return TYPE_X00;
-  if (f=='P' && s == 'R' && t == 'G')
-    return TYPE_PRG;
-  if (f=='S' && s == 'E' && t == 'Q')
-    return TYPE_SEQ;
-  if (f=='R' && s == 'E' && t == 'L')
-    return TYPE_REL;
-  if (f=='U' && s == 'S' && t == 'R')
-    return TYPE_USR;
-
-#ifdef CONFIG_M2I
-  if (f == 'M' && s == '2' && t == 'I')
-    return TYPE_M2I;
-#endif
-
-  if (f == 'D') {
-    if ((s == '6' && t == '4') ||
-        (s == 'N' && t == 'P') ||
-        ((s == '4' || s == '7' || s == '8') &&
-         (t == '1'))) {
-      return TYPE_D64;
-    }
-  }
-  return TYPE_UNK;
-}
-
-/**
  * should_save_raw - check if the file should be saved header-free
  * @name: pointer to the file name
  *
@@ -228,6 +175,16 @@ static bool should_save_raw(char* name) {
     return true;
 
   return false;
+}
+
+static bool str_starts_with(char *buffer, char c) {
+  if (!buffer || !*buffer) return false;
+  return buffer[0] == c;
+}
+
+static bool str_ends_with(char *buffer, char c) {
+  if (!buffer || !*buffer) return false;
+  return buffer[strlen(buffer) - 1] == c;
 }
 
 /**
@@ -368,8 +325,12 @@ static off_t vfs_tell(int fd) {
 static void vfs_path_dent(char *buffer, path_t *path, cbmdirent_t *dent) {
   strcpy (buffer, partition[path->part].base_path);
   strcat (buffer, "/");
-  strcat (buffer, path->dir.pathname);
-  strcat (buffer, "/");
+  if ( path->dir.pathname[0] == '/')
+    strcat (buffer, path->dir.pathname + 1);
+  else
+    strcat (buffer, path->dir.pathname);
+  if (!str_ends_with(buffer, '/'))
+    strcat (buffer, "/");
 
   if (dent->pvt.vfs.realname[0])
     strcat (buffer, (char*)dent->pvt.vfs.realname);
@@ -377,17 +338,26 @@ static void vfs_path_dent(char *buffer, path_t *path, cbmdirent_t *dent) {
     char *p = buffer + strlen(buffer);
     strcat (buffer, (char*)dent->name);
     pet2asc((uint8_t*)p);
+    strcpy((char*)dent->pvt.vfs.realname, p);
   }
 }
 
 static void vfs_path(char *buffer, path_t *path, char *name) {
   strcpy (buffer, partition[path->part].base_path);
   strcat (buffer, "/");
-  strcat (buffer, path->dir.pathname);
-  strcat (buffer, "/");
-  strcat (buffer, name);
+  if ( path->dir.pathname[0] == '/')
+    strcat (buffer, path->dir.pathname + 1);
+  else
+    strcat (buffer, path->dir.pathname);
+  if (!str_ends_with(buffer, '/'))
+    strcat (buffer, "/");
+  if (name[0] == '/')
+    strcat (buffer, name + 1);
+  else
+    strcat (buffer, name);
 }
 
+// Modifies path argument
 static uint8_t _vfs_chdir(path_t *path, char *name) {
   char *pathname = path->dir.pathname;
   if (name[0] == '.' && name[1] == 0) {
@@ -406,12 +376,19 @@ static uint8_t _vfs_chdir(path_t *path, char *name) {
     pathname[0] = 0;
     return 0;
   }
-  if (pathname[0]) {
+  if (pathname[0] && pathname[strlen(pathname) - 1] != '/' && name[0] != '/') {
     strcat(pathname, "/");
   }
-  strcat(pathname, name);
-//printf("_vfs_chdir %s CWD IS NOW '%s'\n", name, pathname);
-  // FIXME check target
+  char buffer[512]; // FIXME
+  vfs_path(buffer, path, name);
+  DIR *dp = opendir (buffer);
+  if (!dp) {
+    ESP_LOGI(TAG, "NOOO DIR %s", buffer);
+    return 1;
+  }
+  closedir(dp);
+  strcpy(path->dir.pathname, buffer);
+printf("_vfs_chdir %s CWD IS NOW '%s'\n", name, buffer);
   return 0;
 }
 
@@ -442,7 +419,7 @@ static uint8_t vfs_file_read(buffer_t *buf) {
   len = (buf->recordlen ? buf->recordlen : 254);
   bytesread = read(buf->pvt.vfs.fd, buf->data+2, len);
   if (bytesread < 0) {
-    parse_error(errno, 1);
+    parse_error(__FUNCTION__, errno, 1);
     free_buffer(buf);
     return 1;
   }
@@ -495,7 +472,7 @@ static uint8_t write_data(buffer_t *buf) {
   byteswritten = write(buf->pvt.vfs.fd, buf->data+2, count);
   if (byteswritten < 0) {
     uart_putc('r');
-    parse_error(errno,1);
+    parse_error(__FUNCTION__, errno,1);
     close(buf->pvt.vfs.fd);
     free_buffer(buf);
     return 1;
@@ -534,7 +511,7 @@ static uint8_t vfs_file_write(buffer_t *buf) {
   if (buf->fptr != fptr) {
     off_t offset = lseek(buf->pvt.vfs.fd, buf->pvt.vfs.headersize + buf->fptr, SEEK_SET);
     if (offset < 0) {
-      parse_error(errno,1);
+      parse_error(__FUNCTION__, errno,1);
       close(buf->pvt.vfs.fd);
       free_buffer(buf);
       return 1;
@@ -572,7 +549,7 @@ static uint8_t vfs_file_write(buffer_t *buf) {
     offset = lseek(buf->pvt.vfs.fd, 0, SEEK_END);
     if (offset < 0) {
       uart_putc('r');
-      parse_error(errno,1);
+      parse_error(__FUNCTION__, errno,1);
       close(buf->pvt.vfs.fd);
       free_buffer(buf);
       return 1;
@@ -605,7 +582,7 @@ uint8_t vfs_file_seek(buffer_t *buf, uint32_t position, uint8_t index) {
   if (fsize >= pos) {
     off_t offset = lseek(buf->pvt.vfs.fd, pos, SEEK_SET);
     if (offset < 0) {
-      parse_error(errno,0);
+      parse_error(__FUNCTION__, errno,0);
       close(buf->pvt.vfs.fd);
       free_buffer(buf);
       return 1;
@@ -658,13 +635,13 @@ static uint8_t vfs_file_close(buffer_t *buf) {
 
   res = close(buf->pvt.vfs.fd);
   buf->pvt.vfs.fd = -1;
-  parse_error(errno,1);
   buf->cleanup = callback_dummy;
 
-  if (res < 0)
+  if (res < 0) {
+    parse_error(__FUNCTION__, errno,1);
     return 1;
-  else
-    return 0;
+  }
+  return 0;
 }
 
 /* ------------------------------------------------------------------------- */
@@ -684,7 +661,7 @@ static uint8_t vfs_file_close(buffer_t *buf) {
 void vfs_open_read(path_t *path, cbmdirent_t *dent, buffer_t *buf) {
   int fd = vfs_open(path, dent, O_RDONLY);
   if (fd < 0) {
-    parse_error(errno,1);
+    parse_error(__FUNCTION__, errno,1);
     return;
   }
   buf->pvt.vfs.fd = fd;
@@ -808,7 +785,7 @@ void vfs_open_write(path_t *path, cbmdirent_t *dent, uint8_t type, buffer_t *buf
     fd = create_file(path, dent, type, buf, 0);
 
   if (fd < 0) {
-    parse_error(errno,0);
+    parse_error(__FUNCTION__, errno,0);
     return;
   }
   buf->pvt.vfs.fd = fd;
@@ -857,7 +834,7 @@ void vfs_open_rel(path_t *path, cbmdirent_t *dent, buffer_t *buf, uint8_t length
   }
 
   if (fd < 0 || bytesread != 1) {
-    parse_error(errno,0);
+    parse_error(__FUNCTION__, errno,0);
     return;
   }
   buf->pvt.vfs.fd = fd;
@@ -890,7 +867,7 @@ uint8_t vfs_opendir(dh_t *dh, path_t *path) {
 #ifdef NO_ORDER
   DIR *dirp = opendir(buffer);
   if (!dirp) {
-    parse_error(errno,1);
+    parse_error(__FUNCTION__, errno,1);
     return 1;
   }
   dh->dir.vfs.dirp = dirp;
@@ -898,7 +875,7 @@ uint8_t vfs_opendir(dh_t *dh, path_t *path) {
   struct dirent **namelist;
   int n = scandir(buffer, &namelist, NULL, alphasort);
   if (n == -1) {
-    parse_error(errno,1);
+    parse_error(__FUNCTION__, errno,1);
     return 1;
   }
   dh->dir.vfs.i = 0;
@@ -944,7 +921,7 @@ int8_t vfs_readdir(dh_t *dh, cbmdirent_t *dent) {
     free(dh->dir.vfs.namelist);
 #endif
       if (errno) {
-        parse_error(errno,1);
+        parse_error(__FUNCTION__, errno,1);
         return -1;
       }
       return -1;
@@ -981,9 +958,9 @@ int8_t vfs_readdir(dh_t *dh, cbmdirent_t *dent) {
   } else {
     char *ptr;
     /* Search for the file extension */
-    uint8_t typeflags = check_extension(de->d_name, &ptr);
+    uint16_t typeflags = check_extension(de->d_name, &ptr);
     //ESP_LOGI(TAG, "TYPE '%s' %d",ptr ? ptr : "", typeflags);
-    if (typeflags == TYPE_X00) {
+    if (typeflags == TYPE_IMG_X00) {
       /* [PSRU]00 file - try to read the internal name */
       uint32_t crc = crc32_le(0, (uint8_t*)buffer, strlen(de->d_name));
       uint8_t *name = p00cache_lookup(dh->part, crc);
@@ -1078,6 +1055,7 @@ int8_t vfs_readdir(dh_t *dh, cbmdirent_t *dent) {
   dent->date.minute = (finfo.ftime >> 5) & 0x3f;
   dent->date.second = (finfo.ftime & 0x1f) << 1;
 #endif
+   //ESP_LOGI(TAG, "readdir '%s' %d",dent->name, typeflags);
 
   return 0;
 }
@@ -1100,9 +1078,10 @@ uint8_t vfs_delete(path_t *path, cbmdirent_t *dent) {
   int res = unlink((char*)buffer);
   update_leds();
 
-  parse_error(errno,0);
-  if (res < 0)
+  if (res < 0) {
+    parse_error(__FUNCTION__, errno,0);
     return 1;
+  }
   //else if (res == FR_NO_FILE)
   //  return 0;
   else
@@ -1123,7 +1102,7 @@ uint8_t vfs_delete(path_t *path, cbmdirent_t *dent) {
 
 uint8_t vfs_chdir(path_t *path, cbmdirent_t *dent) {
 
-//printf("vfs_chdir DIR %s \n", dent->name);
+  ESP_LOGI(TAG, "vfs_chdir '%s' realname '%s' typeflags %x\n", dent->name, dent->pvt.vfs.realname, dent->typeflags);
   uint8_t res;
   /* Left arrow moves one directory up */
   if (dent->name[0] == '_' && dent->name[1] == 0) {
@@ -1138,19 +1117,19 @@ uint8_t vfs_chdir(path_t *path, cbmdirent_t *dent) {
     return 0;
   }
 
-  if ((dent->typeflags & EXT_TYPE_MASK) == TYPE_DIR) {
+  if ((dent->typeflags & TYPE_MASK) == TYPE_DIR) {
     /* It's a directory, change to it */
     res = _vfs_chdir(path, (char*)dent->pvt.vfs.realname);
     if (res) {
-//printf("vfs_chdir NOOOO %s \n", (char*)dent->pvt.vfs.realname);
-      parse_error(ERROR_SYNTAX_UNABLE,1);
+printf("vfs_chdir NOOOO %s \n", (char*)dent->pvt.vfs.realname);
+      parse_error(__FUNCTION__, ERROR_SYNTAX_UNABLE,1);
       return 1;
     }
     return 0;
   }
 //printf("vfs_chdir NO DIR %s \n", dent->name);
   /* Changing into a file, could be a mount request */
-  if ((dent->typeflags & EXT_TYPE_MASK) == TYPE_D64 || (dent->typeflags & EXT_TYPE_MASK) == TYPE_M2I) {
+  if ((dent->typeflags & IMG_TYPE_MASK) == TYPE_IMG_DISK || (dent->typeflags & IMG_TYPE_MASK) == TYPE_IMG_M2I) {
     /* D64/M2I mount request */
     free_multiple_buffers(FMB_USER_CLEAN);
     /* Open image file */
@@ -1162,25 +1141,31 @@ uint8_t vfs_chdir(path_t *path, cbmdirent_t *dent) {
       partition[path->part].flag = FLAG_RO;
     }
     if (fd < 0) {
-      parse_error(errno,1);
+      parse_error(__FUNCTION__, errno,1);
       return 1;
     }
 #ifdef CONFIG_M2I
-    if ((dent->typeflags & EXT_TYPE_MASK) == TYPE_M2I) {
+    if ((dent->typeflags & IMG_TYPE_MASK) == TYPE_IMG_M2I) {
       partition[path->part].fop = &m2iops;
-      partition[path->part].parent_fop = &vfsops;
+      //partition[path->part].parent_fop = &vfsops;
       partition[path->part].imagefd = fd;
+      partition[path->part].imagesize = x
       return 0;
     }
 #endif
     uint32_t fsize = vfs_size(fd);
+    if (fsize == 1154960) fsize = 174848; // FIXME temp hack
+    ESP_LOGI(TAG, "D64 image mount '%s' size %ld", dent->pvt.vfs.realname, fsize);
     if (d64_mount(path, (uint8_t *)dent->pvt.vfs.realname, fsize)) {
       close(fd);
       return 1;
     }
+    /*
     partition[path->part].fop = &d64ops;
     partition[path->part].parent_fop = &vfsops;
+    */
     partition[path->part].imagefd = fd;
+    partition[path->part].imagesize = fsize;
   }
   return 0;
 }
@@ -1192,7 +1177,7 @@ void vfs_mkdir(path_t *path, uint8_t *dirname) {
   vfs_path(buffer, path, (char*)dirname);
   int res = mkdir(buffer, 0);
   if (res)
-    parse_error(errno,0);
+    parse_error(__FUNCTION__, errno,0);
 }
 
 /**
@@ -1204,7 +1189,7 @@ void vfs_mkdir(path_t *path, uint8_t *dirname) {
  * in label. Returns 0 if successfull, != 0 if an error occured.
  */
 static uint8_t vfs_getvolumename(uint8_t part, uint8_t *label) {
-  uint8_t *name = partition[part].base_path + 1;
+  const uint8_t *name = (const uint8_t *)partition[part].base_path + 1;
   memset(label, ' ', CBM_NAME_LENGTH+1);
   memcpy(label, name, ustrlen(name));
   asc2pet(label);
@@ -1212,7 +1197,7 @@ static uint8_t vfs_getvolumename(uint8_t part, uint8_t *label) {
   /*
   int res = f_getlabel("", (char*)label, 0);
   if (res != FR_OK) {
-    parse_error(ERROR_SYNTAX_UNABLE,0);
+    parse_error(__FUNCTION__,ERROR_SYNTAX_UNABLE,0);
     return 1;
   }
   */
@@ -1309,7 +1294,7 @@ static void vfs_readwrite_sector(buffer_t *buf, uint8_t part,
 
   fd = open((const char *)BOOTSECTOR_FILE, mode);
   if (fd < 0) {
-    parse_error(errno, roflag);
+    parse_error(__FUNCTION__, errno, roflag);
     return;
   }
 
@@ -1319,10 +1304,10 @@ static void vfs_readwrite_sector(buffer_t *buf, uint8_t part,
     bytes = write(fd, buf->data, 256);
 
   if (bytes != 256)
-    parse_error(errno, roflag);
+    parse_error(__FUNCTION__, errno, roflag);
 
   if (close(fd) < 0)
-    parse_error(errno, roflag);
+    parse_error(__FUNCTION__, errno, roflag);
 
   return;
 }
@@ -1372,13 +1357,13 @@ void vfs_rename(path_t *path, cbmdirent_t *dent, uint8_t *newname) {
 
     int fd = vfs_open(path, dent, O_WRONLY);
     if (fd < 0) {
-      parse_error(errno,0);
+      parse_error(__FUNCTION__, errno,0);
       return;
     }
 
     off_t res = lseek(fd, P00_CBMNAME_OFFSET, SEEK_SET);
     if (res < 0) {
-      parse_error(errno,0);
+      parse_error(__FUNCTION__, errno,0);
       return;
     }
 
@@ -1389,28 +1374,30 @@ void vfs_rename(path_t *path, cbmdirent_t *dent, uint8_t *newname) {
     byteswritten = write(fd, dent->name, CBM_NAME_LENGTH);
     if (byteswritten != CBM_NAME_LENGTH) {
       close(fd);
-      parse_error(errno,0);
+      parse_error(__FUNCTION__, errno,0);
       return;
     }
 
     if (close(fd) < 0) {
-      parse_error(errno,0);
+      parse_error(__FUNCTION__, errno,0);
       return;
     }
   } else {
     char *ext;
-    switch (check_extension(dent->pvt.vfs.realname, &ext)) {
+    uint16_t typeflags = check_extension(dent->pvt.vfs.realname, &ext);
+    switch (typeflags) {
     case TYPE_REL:
     case TYPE_PRG:
     case TYPE_SEQ:
     case TYPE_USR:
+    case TYPE_IMG_DISK:
       /* Keep type extension */
       ustrcpy(ops_scratch, newname);
       build_name((char*)ops_scratch, dent->typeflags & TYPE_MASK);
       // FIXME path
       res = rename(dent->pvt.vfs.realname, (char*)ops_scratch);
       if (res < 0)
-        parse_error(errno, 0);
+        parse_error(__FUNCTION__, errno, 0);
       break;
 
     default:
@@ -1423,7 +1410,7 @@ void vfs_rename(path_t *path, cbmdirent_t *dent, uint8_t *newname) {
       vfs_path(newpath, path, (char*)newname);
       res = rename(oldpath, newpath);
       if (res < 0)
-        parse_error(errno, 0);
+        parse_error(__FUNCTION__, errno, 0);
       break;
     }
   }
@@ -1477,28 +1464,35 @@ void vfs_rename(path_t *path, cbmdirent_t *dent, uint8_t *newname) {
  * Returns 0 if successful, 1 otherwise.
  */
 static uint8_t vfs_image_unmount(uint8_t part) {
-
-  free_multiple_buffers(FMB_USER_CLEAN);
-
   /* call D64 unmount function to handle BAM refcounting etc. */
   // FIXME: ops entry?
+  /*
   if (partition[part].fop == &d64ops)
     d64_unmount(part);
+    */
+
+  //partition[part].fop = &vfsops;
+  int res = close(partition[part].imagefd);
+  partition[part].imagefd = -1;
+  // TODO update current_dir
+  ESP_LOGI(TAG, "D64 image '%s' unmounted", partition[part].current_dir.pathname);
+  char *p = strrchr(partition[part].current_dir.pathname, '/');
+  if (p) {
+    *p = '\0';
+  }
 
   if (display_found) {
     /* Send current path to display */
+    /*
     path_t path;
-
-    path.part    = part;
+    path.part    = current_part;
     vfs_getdirlabel(&path, ops_scratch);
-    display_current_directory(part, ops_scratch);
+    */
+    display_current_directory(part, partition[current_part].current_dir.pathname);
   }
 
-  partition[part].fop = &vfsops;
-  int res = close(partition[part].imagefd);
-  partition[part].imagefd = -1;
   if (res < 0) {
-    parse_error(errno, 0);
+    parse_error(__FUNCTION__, errno, 0);
     return 1;
   }
   return 0;
@@ -1548,19 +1542,24 @@ void image_mkdir(path_t *path, uint8_t *dirname) {
  * byte into buffer. It returns 0 on success, 1 if less than
  * bytes byte could be read and 2 on failure.
  */
-static uint8_t vfs_image_read(uint8_t part, DWORD offset, void *buffer, uint16_t bytes) {
-
-  if (offset != (DWORD)-1) {
+static uint8_t vfs_image_read(uint8_t part, uint32_t offset, void *buffer, uint16_t bytes) {
+  if (offset != (uint32_t)-1) {
+    if (offset > partition[part].imagesize) {
+printf("HELLO out of file %ld %ld\n", (long)offset, (long)partition[part].imagesize);
+      set_error_ts(ERROR_SYNTAX_UNABLE,255,255);
+assert(0);
+      return 2;
+    }
     off_t off = lseek(partition[part].imagefd, offset, SEEK_SET);
     if (off < 0) {
-      parse_error(errno,1);
+      parse_error(__FUNCTION__, errno,1);
       return 2;
     }
   }
 
   ssize_t bytesread = read(partition[part].imagefd, buffer, bytes);
   if (bytesread < 0) {
-    parse_error(errno,1);
+    parse_error(__FUNCTION__, errno,1);
     return 2;
   }
 
@@ -1582,20 +1581,27 @@ static uint8_t vfs_image_read(uint8_t part, DWORD offset, void *buffer, uint16_t
  * byte into buffer. It returns 0 on success, 1 if less than
  * bytes byte could be written and 2 on failure.
  */
-static uint8_t vfs_image_write(uint8_t part, DWORD offset, void *buffer, uint16_t bytes, uint8_t flush) {
-  if (offset != (DWORD)-1) {
+static uint8_t vfs_image_write(uint8_t part, uint32_t offset, void *buffer, uint16_t bytes, uint8_t flush) {
+  if (offset != (uint32_t)-1) {
+    if (offset > partition[part].imagesize) {
+printf("HELLO out of file %ld %ld\n", (long)offset, (long)partition[part].imagesize);
+      set_error_ts(ERROR_SYNTAX_UNABLE,255,255);
+        assert(0);
+      return 2;
+    }
     off_t off = lseek(partition[part].imagefd, offset, SEEK_SET);
     if (off < 0) {
-      parse_error(errno,0);
+      parse_error(__FUNCTION__, errno,0);
       return 2;
     }
   }
 
   ssize_t byteswritten = write(partition[part].imagefd, buffer, bytes);
   if (byteswritten < 0) {
-    parse_error(errno,1);
+    parse_error(__FUNCTION__, errno,1);
     return 2;
   }
+printf("HELLO vfs_image_write part %d fd %d bytes %d != %d\n", part, partition[part].imagefd, byteswritten, bytes);
 
   if (byteswritten != bytes)
     return 1;

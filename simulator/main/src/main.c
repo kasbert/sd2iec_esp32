@@ -76,6 +76,7 @@ void display_send_prefixed(uint8_t cmd, uint8_t prefixbyte, uint8_t len, const u
  **********************/
 uint8_t device_address = 8;
 uint8_t hardaddress = 8;
+uint8_t image_as_dir = 1;
 
 int main(int argc, char **argv)
 {

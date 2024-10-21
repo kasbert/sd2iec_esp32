@@ -114,9 +114,9 @@ const PROGMEM uint8_t filetypes[] = {
   '4','1',' ', // 9
   '7','1',' ', // 10
   '8','1',' ', // 11
-  'D','6','4', // 12
+  '?','1','2', // 12
   'X','0','0', // 13
-  '?','1','4', // 14
+  'D','6','4', // 14
   '?','1','5', // 15
 };
 
@@ -332,7 +332,7 @@ static uint8_t dir_refill(buffer_t *buf) {
                      &dent)) {
   case 0:
     if (image_as_dir != IMAGE_DIR_NORMAL &&
-        ((dent.typeflags & EXT_TYPE_MASK) == TYPE_D64)) {
+        (dent.typeflags & IMG_TYPE_MASK)) {
       if (image_as_dir == IMAGE_DIR_DIR) {
         dent.typeflags = (dent.typeflags & 0xf0) | TYPE_DIR;
       } else {
@@ -402,7 +402,7 @@ static uint8_t rawdir_refill(buffer_t *buf) {
     }
 
     if (image_as_dir != IMAGE_DIR_NORMAL &&
-        ((dent.typeflags & EXT_TYPE_MASK) == TYPE_D64)) {
+        (dent.typeflags & IMG_TYPE_MASK)) {
       if (image_as_dir == IMAGE_DIR_DIR) {
         dent.typeflags = (dent.typeflags & 0xf0) | TYPE_DIR;
       } else {
@@ -797,7 +797,8 @@ void file_open_previous(void) {
 
   buf->secondary = 0;
 
-  display_filename_read(path.part, CBM_NAME_LENGTH, dent.name);
+  display_filename_read(path.part, &dent);
+  //display_filename_read(path.part, CBM_NAME_LENGTH, dent.name);
   open_read(&path, &dent, buf);
 }
 
@@ -949,7 +950,8 @@ void file_open(uint8_t secondary) {
 
     /* Don't match on DEL or DIR */
     if ((dent.typeflags & TYPE_MASK) != TYPE_DEL &&
-        (dent.typeflags & TYPE_MASK) != TYPE_DIR)
+        (dent.typeflags & TYPE_MASK) != TYPE_DIR &&
+        (dent.typeflags & IMG_TYPE_MASK) != TYPE_IMG_DISK)
       break;
 
     /* But do match if it's for writing */
@@ -964,6 +966,7 @@ void file_open(uint8_t secondary) {
 
   /* If match found is a REL... */
   if(!res && (dent.typeflags & TYPE_MASK) == TYPE_REL) {
+//    printf("HELLO DENT %02x %s", dent.typeflags, dent.pvt.vfs.realname);
     /* requested type must be REL or DEL */
     if(filetype != TYPE_REL && filetype != TYPE_DEL) {
       set_error(ERROR_FILE_TYPE_MISMATCH);
@@ -1041,7 +1044,8 @@ void file_open(uint8_t secondary) {
   buf->secondary = secondary;
 
   if(filetype == TYPE_REL) {
-    display_filename_write(path.part,CBM_NAME_LENGTH,dent.name);
+    display_filename_write(path.part, &dent);
+    //display_filename_write(path.part,CBM_NAME_LENGTH,dent.name);
     open_rel(&path, &dent, buf, recordlen, (mode == OPEN_MODIFY));
     return;
   }
@@ -1054,14 +1058,16 @@ void file_open(uint8_t secondary) {
   case OPEN_READ:
     /* Modify is the same as read, but allows reading *ed files.        */
     /* FAT doesn't have anything equivalent, so both are mapped to READ */
-    display_filename_read(path.part,CBM_NAME_LENGTH,dent.name);
+    display_filename_read(path.part, &dent);
+    //display_filename_read(path.part,CBM_NAME_LENGTH,dent.name);
     open_read(&path, &dent, buf);
     break;
 
   case OPEN_WRITE:
   case OPEN_APPEND:
-    display_filename_write(path.part,CBM_NAME_LENGTH,dent.name);
+    //display_filename_write(path.part,CBM_NAME_LENGTH,dent.name);
     open_write(&path, &dent, filetype, buf, (mode == OPEN_APPEND));
+    display_filename_write(path.part, &dent);
     break;
   }
 }

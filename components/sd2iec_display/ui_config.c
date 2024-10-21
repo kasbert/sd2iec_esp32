@@ -153,11 +153,6 @@ static void config_create(lv_obj_t *parent) {
 }
 #endif
 
-static void test_event_handler(lv_event_t *e) {
-  ESP_LOGI(TAG, "Testing SD card file operations");
-  send_system_message(69, 0);
-}
-
 static void globalflags_event_handler(lv_event_t *e) {
   lv_event_code_t code = lv_event_get_code(e);
   lv_obj_t *obj = lv_event_get_target(e);
@@ -250,14 +245,6 @@ void ui_config(lv_obj_t *container) {
     lv_label_set_text(format_label, "Format");
     lv_obj_center(format_label);
     lv_obj_add_event_cb(format_btn, format_event_handler, LV_EVENT_CLICKED, 0);
-
-    lv_obj_t *test_btn = lv_btn_create(cont2);
-    lv_obj_set_height(test_btn, LV_SIZE_CONTENT);
-    lv_obj_set_width(test_btn, LV_PCT(30));
-    lv_obj_t *test_label = lv_label_create(test_btn);
-    lv_label_set_text(test_label, "Test");
-    lv_obj_center(test_label);
-    lv_obj_add_event_cb(test_btn, test_event_handler, LV_EVENT_CLICKED, 0);
   }
 
   // sdmmc_card_info(parent, card);

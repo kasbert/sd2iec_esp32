@@ -8,9 +8,14 @@ extern lv_style_t style_condensed;
 
 void ui_status(lv_obj_t *container);
 void ui_config(lv_obj_t *container);
+// void ui_files1(lv_obj_t *container);
+void ui_files2(lv_obj_t *container);
+void ui_about(lv_obj_t *container);
 
 bool ui_is_status_tab();
 
+void ui_files_show_current(const uint8_t *buffer);
+void ui_files_open_dir(const char *buffer);
 void ui_status_set_partition(int prefixbyte);
 
 void add_status_message(const char *fmt, ...)

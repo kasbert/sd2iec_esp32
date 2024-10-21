@@ -343,3 +343,99 @@ unsigned char chargen_bin[] = {
   0xf0, 0xf0, 0xf0, 0xf0
 };
 unsigned int chargen_bin_len = 4096;
+
+/* Get info about glyph of `unicode_letter` in `font` font.
+ * Store the result in `dsc_out`.
+ * The next letter (`unicode_letter_next`) might be used to calculate the width
+ * required by this glyph (kerning)
+ */
+static bool chargen_get_glyph_dsc_cb(const lv_font_t *font,
+                              lv_font_glyph_dsc_t *dsc_out,
+                              uint32_t unicode_letter,
+                              uint32_t unicode_letter_next) {
+  dsc_out->adv_w = 8; /*Horizontal space required by the glyph in [px]*/
+  dsc_out->box_h = 8; /*Height of the bitmap in [px]*/
+  dsc_out->box_w = 8; /*Width of the bitmap in [px]*/
+  dsc_out->ofs_x = 0; /*X offset of the bitmap in [pf]*/
+  dsc_out->ofs_y = 0; /*Y offset of the bitmap measured from the as line*/
+  dsc_out->format = LV_FONT_GLYPH_FORMAT_A1; // LV_FONT_GLYPH_FORMAT_A1;
+                                             // LV_FONT_GLYPH_FORMAT_IMAGE
+  dsc_out->is_placeholder = 0;
+
+  if (unicode_letter >= 0x60 && unicode_letter <= 0x7f) {
+    unicode_letter -= 0x60;
+  }
+  dsc_out->gid.index = unicode_letter;
+  // printf ("YEAH GLYPH DSC %c\n", (int)unicode_letter);
+
+  return true; /*true: glyph found; false: glyph was not found*/
+}
+
+typedef struct chargen_desc {
+  int width;
+} lv_font_fmt_chargen_dsc_t;
+
+/* Get the bitmap of `unicode_letter` from `font`. */
+static const void *chargen_get_glyph_bitmap_cb(lv_font_glyph_dsc_t *gdsc,
+                                        lv_draw_buf_t *draw_buf) {
+  uint32_t gid_index = gdsc->gid.index;
+  if (gid_index > 0xff) {
+    ESP_LOGE(TAG, "Invalid chargen char %lx", (long)gid_index);
+    return NULL;
+  }
+
+  //  const lv_font_t *font = gdsc->resolved_font;
+  //  // lv_font_fmt_chargen_dsc_t * fdsc = (lv_font_fmt_chargen_dsc_t
+  //  *)font->dsc;
+
+  uint8_t *bitmap_out = draw_buf->data;
+  const uint8_t *bitmap_in = chargen_bin + 2048 + (gid_index * 8);
+  uint8_t *bitmap_out_tmp = bitmap_out;
+  int32_t i = 0;
+  int32_t x, y;
+  uint32_t stride =
+      lv_draw_buf_width_to_stride(gdsc->box_w, LV_COLOR_FORMAT_A8);
+
+  for (y = 0; y < 8; y++, bitmap_in++, bitmap_out_tmp += stride) {
+    for (i = 0x80, x = 0; x < 8; x++, i >>= 1) {
+      bitmap_out_tmp[x] = (*bitmap_in) & i ? 0xff : 0x00;
+    }
+  }
+  return draw_buf;
+}
+
+static const lv_font_fmt_chargen_dsc_t chargen_desc = {
+    .width = 8,
+};
+/*Initialize a public general font descriptor*/
+const lv_font_t chargen_font = {
+    .get_glyph_dsc =
+        chargen_get_glyph_dsc_cb, /*Set a callback to get info about glyphs*/
+    .get_glyph_bitmap =
+        chargen_get_glyph_bitmap_cb, /*Set a callback to get bitmap of a glyph*/
+    .line_height = 8, /*The maximum line height required by the font*/
+    .base_line = 0,   /*Baseline measured from the bottom of the line*/
+    .subpx = LV_FONT_SUBPX_NONE,
+    .underline_position = 0,
+    .underline_thickness = 0,
+    .dsc = &chargen_desc, /*The custom font data. Will be accessed by
+                             `get_glyph_bitmap/dsc` */
+};
+
+static const lv_font_fmt_chargen_dsc_t chargen_desc_sparse = {
+    .width = 9,
+};
+/*Initialize a public general font descriptor*/
+const lv_font_t chargen_font_sparse = {
+    .get_glyph_dsc =
+        chargen_get_glyph_dsc_cb, /*Set a callback to get info about glyphs*/
+    .get_glyph_bitmap =
+        chargen_get_glyph_bitmap_cb, /*Set a callback to get bitmap of a glyph*/
+    .line_height = 9, /*The maximum line height required by the font*/
+    .base_line = 0,   /*Baseline measured from the bottom of the line*/
+    .subpx = LV_FONT_SUBPX_NONE,
+    .underline_position = 0,
+    .underline_thickness = 0,
+    .dsc = &chargen_desc_sparse, /*The custom font data. Will be accessed by
+                                    `get_glyph_bitmap/dsc` */
+};
