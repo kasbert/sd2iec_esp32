@@ -26,6 +26,7 @@ void ui_about(lv_obj_t *container) {
   // lv_obj_t *container = lv_obj_create(tab);
   lv_obj_set_flex_flow(container, LV_FLEX_FLOW_COLUMN);
   // lv_style_set_pad_row(&container, 0);
+  lv_obj_add_style(container, &style_black_bg, 0);
 
   {
     // Drive pic 
@@ -39,7 +40,6 @@ void ui_about(lv_obj_t *container) {
     lv_obj_remove_flag(cont0, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t *icon = lv_image_create(cont0);
-extern lv_image_dsc_t  c1541;
     lv_image_set_src(icon, &c1541);
     //lv_obj_add_event_cb(icon, test_system_event_handler , LV_EVENT_CLICKED, 0);
     //lv_obj_add_flag(icon, LV_OBJ_FLAG_CLICKABLE);
@@ -66,13 +66,14 @@ extern lv_image_dsc_t  c1541;
                                LV_PART_MAIN);
     //lv_obj_add_style(help_label, &style_text_muted, LV_PART_MAIN);
     //lv_obj_add_style(help_label, &style_condensed, LV_PART_MAIN);
-    lv_label_set_text(help_label, "SD2IEC_ESP32 By Kasper in 2024\n\n"
+    lv_label_set_text(help_label, 
+      "SD2IEC_ESP32 By Kasper in 2024\n"
+      "Graphics by Manu\n\n"
       "Filename \"{{n}{path}:}pattern\"\n"
       " n : partition \"0\" = SDCARD \"1\" == Flash\n"
       " path: directory in sdcard\n"
       " pattern: commodore file name\n"
       "Load directory \"${{n}{path}{:pattern{=type}}}\""
-      "!#¤$%&/()={[]}\\?,.-<>\n"
       );
 
   }

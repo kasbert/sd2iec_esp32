@@ -5,6 +5,7 @@ extern const lv_font_t chargen_font_sparse ;
 extern lv_obj_t *sdcard_mount_label;
 extern lv_style_t style_text_muted;
 extern lv_style_t style_condensed;
+extern lv_style_t style_black_bg;
 
 void ui_status(lv_obj_t *container);
 void ui_config(lv_obj_t *container);
@@ -30,4 +31,17 @@ uint8_t esp_display_event(uint8_t cmd, uint8_t prefixbyte,
                                  uint8_t length, const uint8_t *buffer);
 
 extern uint8_t backlight_percent;
+void backlight_level(int level); // 0 - 1023
+void backlight_on();
+void backlight_off();
 
+extern const lv_img_dsc_t micro_sd_card;
+extern const lv_img_dsc_t processor;
+
+extern const lv_image_dsc_t  c1541;
+//extern const lv_image_dsc_t  splash;
+void lcd_panel_draw_splash(const lv_image_dsc_t *dsc);
+void show_splash();
+
+#define RGB565COLOR(r, g, b)                                                   \
+  ((((r) & 0xf8) << 8) | (((g) & 0xfc) << 3) | ((b) & 0xf8) >> 3)

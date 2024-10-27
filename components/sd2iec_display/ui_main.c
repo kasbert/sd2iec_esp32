@@ -22,12 +22,36 @@
 
 // Font
 #include "chargen.c"
+#include "img/micro_sd_card.c"
+#include "img/processor.c"
+
+// Picture
+#if 0
+// ./managed_components/lvgl__lvgl/scripts/LVGLImage.py  --ofmt C --cf RGB565 --compress RLE --out components/sd2iec_display/img/ components/sd2iec_display/img/c1541.png
+#include "img/c1541.c"
+#else
+//xxd -g 1 -i components/sd2iec_display/img/c1541.png  > components/sd2iec_display/img/c1541_png.c
+const
+#include "img/c1541_png.c"
+const lv_image_dsc_t c1541 = {
+  .header.magic = LV_IMAGE_HEADER_MAGIC,
+  .header.cf = LV_COLOR_FORMAT_RGB565,
+  .header.flags = 0 | LV_IMAGE_FLAGS_COMPRESSED,
+  .header.w = 400,
+  .header.h = 193,
+  .header.stride = 800,
+  .data_size = sizeof(components_sd2iec_display_img_c1541_png),
+  .data = components_sd2iec_display_img_c1541_png,
+};
+#endif
 
 static lv_obj_t *tv;
 
 lv_style_t style_text_muted;
 
 lv_style_t style_condensed;
+
+lv_style_t style_black_bg;
 
 // static lv_obj_t * calendar;
 /*
@@ -73,19 +97,27 @@ static void msg_event_cb(lv_event_t *e) {
 
 void main_widget() {
   lv_disp_t *dispp = lv_disp_get_default();
+  // TODO does not work ?
   lv_theme_t *theme = lv_theme_default_init(
       dispp, lv_palette_main(LV_PALETTE_BLUE), lv_palette_main(LV_PALETTE_RED),
       true, LV_FONT_DEFAULT);
   lv_disp_set_theme(dispp, theme);
 
-  lv_style_init(&style_text_muted);
-  lv_style_set_text_opa(&style_text_muted, LV_OPA_50);
+  {
+    lv_style_init(&style_text_muted);
+    lv_style_set_text_opa(&style_text_muted, LV_OPA_50);
 
-  lv_style_init(&style_condensed);
-  lv_style_set_pad_top(&style_condensed, 0);
-  lv_style_set_pad_bottom(&style_condensed, 0);
-  lv_style_set_pad_left(&style_condensed, 0);
-  lv_style_set_pad_right(&style_condensed, 0);
+    lv_style_init(&style_condensed);
+    lv_style_set_pad_top(&style_condensed, 0);
+    lv_style_set_pad_bottom(&style_condensed, 0);
+    lv_style_set_pad_left(&style_condensed, 0);
+    lv_style_set_pad_right(&style_condensed, 0);
+  
+    lv_style_init(&style_black_bg);
+    lv_style_set_bg_color(&style_black_bg, lv_color_black());
+    lv_style_set_bg_opa(&style_black_bg, LV_OPA_COVER);
+
+  }
 
   lv_obj_t *container = lv_obj_create(lv_scr_act());
   // lv_obj_t *container = lv_obj_create(t0);

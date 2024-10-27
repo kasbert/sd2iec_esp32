@@ -1,4 +1,7 @@
 menu "Example Configuration"
+    config EXAMPLE_SHOW_SPLASH
+        bool "Show splash image"
+        default "y"
     config EXAMPLE_LCD_DOUBLE_FB
         bool "Use double Frame Buffer"
         default "y"

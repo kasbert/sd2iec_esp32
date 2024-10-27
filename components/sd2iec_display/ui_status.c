@@ -18,9 +18,6 @@
 #include "esp32/esp-display.h"
 #include "esp32/espfs.h"
 
-#include "micro_sd_card.c"
-#include "processor.c"
-
 #define TAG "gui"
 
 static lv_style_t style_part_active;
@@ -35,9 +32,6 @@ static lv_obj_t *flash_box;
 static lv_obj_t *drive_number_label1;
 
 static void spiflash_info(lv_obj_t *label, const char *mount_point);
-
-// Picture
-#include "c1541.c"
 
 static void sdcard_event_cb(lv_event_t *event) {
   send_system_message(SYSTEM_DOSCMD, "CP1");
@@ -66,36 +60,40 @@ void ui_status(lv_obj_t *container) {
   lv_style_set_text_color(&style_inv_lb, lv_color_black());
   lv_style_set_text_opa(&style_inv_lb, LV_OPA_100);
   */
+  {
+    lv_style_init(&style_part_inactive);
+    /*
+    lv_style_set_border_width(&style_part_inactive, 2);
+    lv_style_set_border_color(&style_part_inactive, lv_color_black());
+    lv_style_set_radius(&style_part_inactive, 5);
+    */
+    lv_style_set_bg_color(&style_part_inactive, lv_color_black());
 
-  lv_style_init(&style_part_inactive);
-  /*
-  lv_style_set_border_width(&style_part_inactive, 2);
-  lv_style_set_border_color(&style_part_inactive, lv_color_black());
-  lv_style_set_radius(&style_part_inactive, 5);
-  */
-  lv_style_set_bg_color(&style_part_inactive, lv_color_black());
+    lv_style_init(&style_part_active);
+    //    lv_style_set_text_font(&style_part_active, &my_font);
 
-  lv_style_init(&style_part_active);
-  //    lv_style_set_text_font(&style_part_active, &my_font);
-
-  lv_style_set_bg_color(&style_part_active, lv_color_make(10, 10, 10));
-  lv_style_set_bg_opa(&style_part_active, LV_OPA_COVER);
-  /*
-  lv_style_set_text_color(&style_part_active, lv_color_white());
-  lv_style_set_text_opa(&style_part_active, LV_OPA_100);
-  */
-  lv_style_set_border_width(&style_part_active, 2);
-  lv_style_set_border_color(&style_part_active, lv_color_white());
-  lv_style_set_radius(&style_part_active, 5);
-
+    lv_style_set_bg_color(&style_part_active, lv_color_make(10, 10, 10));
+    lv_style_set_bg_opa(&style_part_active, LV_OPA_COVER);
+    /*
+    lv_style_set_text_color(&style_part_active, lv_color_white());
+    lv_style_set_text_opa(&style_part_active, LV_OPA_100);
+    */
+    lv_style_set_border_width(&style_part_active, 2);
+    lv_style_set_border_color(&style_part_active, lv_color_white());
+    lv_style_set_radius(&style_part_active, 5);
+  }
+ 
   // lv_obj_t *container = lv_obj_create(tab);
   lv_obj_set_flex_flow(container, LV_FLEX_FLOW_COLUMN);
   // lv_style_set_pad_row(&container, 0);
+  lv_obj_add_style(container, &style_black_bg, 0);
+  lv_obj_remove_flag(container, LV_OBJ_FLAG_SCROLLABLE);
 
   {
     // Drive pic + drive number
     lv_obj_t *cont0 = lv_obj_create(container);
     lv_obj_remove_style_all(cont0);
+    lv_obj_add_style(cont0, &style_black_bg, 0);
     // lv_obj_set_size(cont, 300, 220);
     lv_obj_set_width(cont0, lv_pct(100));
     lv_obj_set_height(cont0, LV_SIZE_CONTENT);

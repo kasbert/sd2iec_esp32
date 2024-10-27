@@ -130,6 +130,13 @@ static void gui_task(void *pvParameter) {
   ESP_GOTO_ON_FALSE(sd2iec_lcd_ui_init(), ESP_ERR_INVALID_ARG, err, TAG,
                     "LVGL init failed!");
 
+#if CONFIG_EXAMPLE_SHOW_SPLASH
+  show_splash();
+  backlight_on();
+  vTaskDelay(pdMS_TO_TICKS(3000));
+#endif
+  backlight_on();
+
   lvgl_port_lock(0);
   main_widget();
   lvgl_port_unlock();
@@ -138,17 +145,6 @@ static void gui_task(void *pvParameter) {
   lv_obj_add_event_cb(lv_scr_act(), backlight_set_event_cb, BL_EVENT_1, 0);
 
   ESP_LOGI(TAG, "UI Stack high water mark %u ", uxTaskGetStackHighWaterMark(0));
-
-#if 0
-    // Tick interface for LVGL (using esp_timer to generate 2ms periodic event)
-    const esp_timer_create_args_t lvgl_tick_timer_args = {
-        .callback = &lvgl_task_handle_cb,
-        .name = "LVGL task handler",
-    };
-    esp_timer_handle_t  handle_timer;
-    ESP_GOTO_ON_ERROR(esp_timer_create(&lvgl_tick_timer_args, &handle_timer), err, TAG, "Creating LVGL timer filed!");
-    esp_timer_start_periodic(handle_timer, 10);
-#endif
 
   ESP_LOGI(TAG, "Enter ui loop");
   while (1) {
@@ -213,9 +209,47 @@ void ui_update_line_status(uint8_t busy, uint8_t dirty) {
   if (ui_is_status_tab()) {
     // Draw "leds" to picture
     lcd_panel_draw_rectangle(
-        50, 180, 15, 15, busy ? RGB565COLOR(0, 255, 0) : RGB565COLOR(0, 64, 0));
-    lcd_panel_draw_rectangle(90, 180, 15, 10,
+        65, 184, 15, 15, busy ? RGB565COLOR(0, 255, 0) : RGB565COLOR(0, 64, 0));
+    lcd_panel_draw_rectangle(115, 184, 15, 15,
                              dirty ? RGB565COLOR(255, 0, 0)
                                    : RGB565COLOR(64, 0, 0));
   }
 }
+
+#if CONFIG_EXAMPLE_SHOW_SPLASH
+// under lvgl. lvgl musb be initialized
+#include "libs/lodepng/lodepng.h"
+
+//xxd -g 1 -i components/sd2iec_display/img/splash.png  > components/sd2iec_display/img/splash_png.c
+const
+#include "img/splash_png.c"
+void show_splash() {
+  unsigned error;
+  lv_draw_buf_t * decoded ;
+  unsigned width, height;
+  error = lodepng_decode24((unsigned char **)&decoded, &width, &height, components_sd2iec_display_img_splash_png, components_sd2iec_display_img_splash_png_len);
+  if(error) {
+    ESP_LOGE(TAG, "Error %u: %s", error, lodepng_error_text(error));
+    return;
+  }
+  ESP_LOGI(TAG, "Splash image %ux%u: %p", width, height, decoded);
+  unsigned char *p = decoded->data;
+  for (int i = 0; i < width*height; i++) {
+    ((uint16_t*)p)[i] = RGB565COLOR(p[i*3], p[i*3+1], p[i*3+2]);
+  }
+
+  const lv_image_dsc_t splash = {
+    .header.magic = LV_IMAGE_HEADER_MAGIC,
+    .header.cf = LV_COLOR_FORMAT_RGB565,
+  //  .header.flags = 0 | LV_IMAGE_FLAGS_COMPRESSED,
+    .header.w = width,
+    .header.h = height,
+    .header.stride = 800,
+    .data_size = width * height * 2,
+    .data = p,
+  };
+
+  lcd_panel_draw_splash(&splash);
+  free(decoded);
+}
+#endif

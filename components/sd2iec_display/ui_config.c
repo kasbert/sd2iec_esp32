@@ -214,6 +214,7 @@ void ui_config(lv_obj_t *container) {
   lv_obj_set_flex_align(container, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
                         LV_FLEX_ALIGN_CENTER);
   lv_obj_set_style_text_font(container, &lv_font_montserrat_20, 0);
+  lv_obj_add_style(container, &style_black_bg, 0);
 
   {
     lv_obj_t *cont2 = lv_obj_create(container);

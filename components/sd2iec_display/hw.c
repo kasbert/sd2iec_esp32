@@ -46,7 +46,6 @@ static esp_lcd_panel_io_handle_t   touch_io_handle;
 static esp_lcd_touch_handle_t      touch_handle;
 static lv_display_t *disp;
 
-void lcd_panel_draw_splash(const lv_image_dsc_t *dsc);
 #if 0
 static void lcd_panel_test(esp_lcd_panel_handle_t panel_handle);
 #endif
@@ -357,7 +356,6 @@ static void backlight_del() {
     ESP_ERROR_CHECK(esp_lcd_touch_new_i2c_gt911(touch_io_handle, &tp_cfg, &touch_handle));
 #endif
 
-    backlight_on();
     return true;
 }
 
@@ -422,6 +420,8 @@ bool sd2iec_lvgl_init() {
         }
     };
     disp = lvgl_port_add_disp_rgb(&disp_cfg, &rgb_cfg);
+    // buffer was filled with white
+    lcd_panel_draw_rectangle(0, 0, CONFIG_EXAMPLE_LCD_H_RES, CONFIG_EXAMPLE_LCD_V_RES, 0); 
 
 #if CONFIG_EXAMPLE_TOUCH_I2C_NUM > -1
     /* Add touch input (for selected screen) */
@@ -459,9 +459,6 @@ esp_err_t sd2iec_lcd_hw_init(void)
     disp = 0;
     example_panel_init();
     //lcd_panel_test(panel_handle);
-extern lv_image_dsc_t  c1541;
-  lcd_panel_draw_splash(&c1541);
-  
     return ret;
 /*
     err:
@@ -505,8 +502,8 @@ void lcd_panel_draw_rectangle(uint16_t x_start, uint16_t y_start, uint16_t width
 
 void lcd_panel_draw_splash(const lv_image_dsc_t *dsc)
 {
-    uint16_t x_start = (480 - dsc->header.w) / 2;
-    uint16_t y_start = (480 - dsc->header.h) / 2;
+    uint16_t x_start = (CONFIG_EXAMPLE_LCD_H_RES - dsc->header.w) / 2;
+    uint16_t y_start = (CONFIG_EXAMPLE_LCD_V_RES - dsc->header.h) / 2;
     uint16_t width = dsc->header.w;
     uint16_t height = dsc->header.h;
     uint16_t *img = (uint16_t *)dsc->data;
