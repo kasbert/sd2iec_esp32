@@ -30,7 +30,8 @@
 // ./managed_components/lvgl__lvgl/scripts/LVGLImage.py  --ofmt C --cf RGB565 --compress RLE --out components/sd2iec_display/img/ components/sd2iec_display/img/c1541.png
 #include "img/c1541.c"
 #else
-//xxd -g 1 -i components/sd2iec_display/img/c1541.png  > components/sd2iec_display/img/c1541_png.c
+//cd  components/sd2iec_display
+//xxd -g 1 -i img/c1541.png  > img/c1541_png.c
 const
 #include "img/c1541_png.c"
 const lv_image_dsc_t c1541 = {
@@ -40,8 +41,26 @@ const lv_image_dsc_t c1541 = {
   .header.w = 400,
   .header.h = 193,
   .header.stride = 800,
-  .data_size = sizeof(components_sd2iec_display_img_c1541_png),
-  .data = components_sd2iec_display_img_c1541_png,
+  .data_size = sizeof(img_c1541_png),
+  .data = img_c1541_png,
+};
+#endif
+
+#if CONFIG_EXAMPLE_SHOW_SPLASH
+// cd  components/sd2iec_display
+//xxd -g 1 -i img/splash.png  > img/splash_png.c
+const
+#include "img/splash_png.c"
+//const
+lv_image_dsc_t splash = {
+  .header.magic = LV_IMAGE_HEADER_MAGIC,
+  .header.cf = LV_COLOR_FORMAT_RGB565,
+  .header.flags = 0,
+  .header.w = 480,
+  .header.h = 480,
+  .header.stride = 960,
+  .data_size = sizeof(img_splash_png),
+  .data = img_splash_png,
 };
 #endif
 

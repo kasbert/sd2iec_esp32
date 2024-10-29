@@ -219,15 +219,11 @@ void ui_update_line_status(uint8_t busy, uint8_t dirty) {
 #if CONFIG_EXAMPLE_SHOW_SPLASH
 // under lvgl. lvgl musb be initialized
 #include "libs/lodepng/lodepng.h"
-
-//xxd -g 1 -i components/sd2iec_display/img/splash.png  > components/sd2iec_display/img/splash_png.c
-const
-#include "img/splash_png.c"
 void show_splash() {
   unsigned error;
   lv_draw_buf_t * decoded ;
   unsigned width, height;
-  error = lodepng_decode24((unsigned char **)&decoded, &width, &height, components_sd2iec_display_img_splash_png, components_sd2iec_display_img_splash_png_len);
+  error = lodepng_decode24((unsigned char **)&decoded, &width, &height, img_splash_png, img_splash_png_len);
   if(error) {
     ESP_LOGE(TAG, "Error %u: %s", error, lodepng_error_text(error));
     return;
@@ -238,6 +234,7 @@ void show_splash() {
     ((uint16_t*)p)[i] = RGB565COLOR(p[i*3], p[i*3+1], p[i*3+2]);
   }
 
+#if 0
   const lv_image_dsc_t splash = {
     .header.magic = LV_IMAGE_HEADER_MAGIC,
     .header.cf = LV_COLOR_FORMAT_RGB565,
@@ -248,8 +245,18 @@ void show_splash() {
     .data_size = width * height * 2,
     .data = p,
   };
-
   lcd_panel_draw_splash(&splash);
   free(decoded);
+#else
+  //
+  extern lv_image_dsc_t splash;
+  splash.header.w = width;
+  splash.header.h = height;
+  splash.data = p;
+  splash.data_size = width*height*2;
+  lcd_panel_draw_splash(&splash);
+  // save the data for ui_about
+#endif
+
 }
 #endif

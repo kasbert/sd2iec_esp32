@@ -10,7 +10,7 @@
 #define CONFIG_REMOTE_DISPLAY 1
 #define CONFIG_LV_FONT_MONTSERRAT_24 1
 #define LV_FONT_MONTSERRAT_24 1
-
+#define CONFIG_EXAMPLE_SHOW_SPLASH 1
 
 extern uint8_t device_address;
 

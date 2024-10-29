@@ -41,7 +41,13 @@ extern const lv_img_dsc_t processor;
 extern const lv_image_dsc_t  c1541;
 //extern const lv_image_dsc_t  splash;
 void lcd_panel_draw_splash(const lv_image_dsc_t *dsc);
+
+#if CONFIG_EXAMPLE_SHOW_SPLASH
 void show_splash();
+extern const unsigned char img_splash_png[];
+extern unsigned int img_splash_png_len ;
+extern lv_image_dsc_t splash;
+#endif
 
 #define RGB565COLOR(r, g, b)                                                   \
   ((((r) & 0xf8) << 8) | (((g) & 0xfc) << 3) | ((b) & 0xf8) >> 3)
