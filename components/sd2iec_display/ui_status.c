@@ -167,6 +167,7 @@ void ui_status(lv_obj_t *container) {
     sdcard_box = lv_obj_create(cont1);
     lv_obj_set_flex_flow(sdcard_box, LV_FLEX_FLOW_ROW);
     lv_obj_set_width(sdcard_box, lv_pct(50));
+    lv_obj_set_height(sdcard_box, 110);
     lv_obj_add_event_cb(sdcard_box, sdcard_event_cb, LV_EVENT_CLICKED, NULL);
     lv_obj_add_flag(sdcard_box, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_remove_flag(sdcard_box, LV_OBJ_FLAG_SCROLLABLE);
@@ -185,6 +186,7 @@ void ui_status(lv_obj_t *container) {
     flash_box = lv_obj_create(cont1);
     lv_obj_set_flex_flow(flash_box, LV_FLEX_FLOW_ROW);
     lv_obj_set_width(flash_box, lv_pct(50));
+    lv_obj_set_height(flash_box , 110);
     lv_obj_add_event_cb(flash_box, flash_event_cb, LV_EVENT_CLICKED, NULL);
     lv_obj_add_flag(flash_box, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_remove_flag(flash_box, LV_OBJ_FLAG_SCROLLABLE);

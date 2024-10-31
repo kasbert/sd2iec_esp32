@@ -387,8 +387,9 @@ static uint8_t _vfs_chdir(path_t *path, char *name) {
     return 1;
   }
   closedir(dp);
-  strcpy(path->dir.pathname, buffer);
-printf("_vfs_chdir %s CWD IS NOW '%s'\n", name, buffer);
+  char *p = buffer + strlen(partition[path->part].base_path) + 1;
+  strcpy(path->dir.pathname, p);
+printf("_vfs_chdir %s CWD IS NOW '%s'\n", name, p);
   return 0;
 }
 

@@ -143,10 +143,22 @@ void display_menu_reset(void) {
   display_send_prefixed(DISPLAY_MENU_RESET, 0, 0, 0);
 }
 
+static bool str_starts_with(const char *buffer, char c) {
+  if (!buffer || !*buffer) return false;
+  return buffer[0] == c;
+}
+
+static bool str_ends_with(const char *buffer, char c) {
+  if (!buffer || !*buffer) return false;
+  return buffer[strlen(buffer) - 1] == c;
+}
+
 void display_current_directory(uint8_t part, const char *name) {
   char buffer[512]; // FIXME
   strcpy (buffer, partition[part].base_path);
-  //strcat (buffer, "/");
+  if (!str_ends_with(buffer, '/') && !str_starts_with(name, '/')) {
+    strcat (buffer, "/");
+  }
   strcat (buffer, name);
   //printf("HELLO display_current_directory %s %s \n", name, buffer);
 
