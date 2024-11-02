@@ -51,7 +51,12 @@ SD2IEC have a concept of partitions. These are not FAT or SD card partitions.
 Partition 0 is the FAT file system in SDCARD.
 Partition 1 is a part of board flash as a FAT file system. You can use it for storing utilities like file browsers and fast loaders.
 
+# Display
+![ESP32 with display](/images/sd2iec_esp32a.jpg)
+![ESP32 with display](/images/sd2iec_esp32b.jpg)
+
 # Notes
+Fastloades do not work reliably
 No buttons for now.  
 No display for now.  
 M2I is broken.  
