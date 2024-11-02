@@ -23,8 +23,9 @@ See the original [README](components/sd2iec/README)
 # I/O
 
 Pins in my ESP32S3 board. Use menuconfig to change the values
+
 | Function                    | Pin |
-|-----------------------------|-----|
+| ----------------------------- | ----- |
 | CONFIG_SD2IEC_SD_PIN_MOSI   |  47 |
 | CONFIG_SD2IEC_SD_PIN_MISO   |  41 |
 | CONFIG_SD2IEC_SD_PIN_CLK    |  48 |
