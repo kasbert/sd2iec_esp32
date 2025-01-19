@@ -57,10 +57,8 @@ Partition 1 is a part of board flash as a FAT file system. You can use it for st
 ![ESP32 with display](/images/sd2iec_esp32b.jpg)
 
 # Notes
-Fastloades do not work reliably
-No buttons for now.  
-No display for now.  
+Fastloaders do not work reliably
 M2I is broken.  
 Changelists are broken.  
-Some (most ?) functionality is broken.  
+Simple file loading and saving works.  
 
